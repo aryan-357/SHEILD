@@ -109,15 +109,11 @@ String getDashboardHTML() {
   html += "  --container-bg: rgba(31, 41, 55, 0.85);";
   html += "}";
   html += "body { margin: 0; color: var(--text-main); font-family: 'Inter', sans-serif; padding: 20px; transition: background-color 0.5s ease, color 0.5s ease; ";
-  html += "  background: linear-gradient(115deg, transparent 20%, rgba(255,105,180,0.15) 45%, rgba(135,206,235,0.15) 55%, transparent 80%), conic-gradient(from 45deg, rgba(230,230,250,0.2), rgba(240,255,255,0.2), rgba(255,228,225,0.2), rgba(230,230,250,0.2));";
+  html += "  background-image: url('https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=2000&auto=format&fit=crop');";
+  html += "  background-size: cover;";
+  html += "  background-position: center;";
+  html += "  background-attachment: fixed;";
   html += "  background-color: var(--bg);";
-  html += "  background-size: 200% 200%;";
-  html += "  animation: iridescence 10s ease infinite;";
-  html += "}";
-  html += "@keyframes iridescence {";
-  html += "  0% { background-position: 0% 50%; }";
-  html += "  50% { background-position: 100% 50%; }";
-  html += "  100% { background-position: 0% 50%; }";
   html += "}";
   html += ".container { max-width: 1200px; margin: 0 auto; background: var(--container-bg); padding: 30px; border-radius: 12px; box-shadow: 0 4px 30px var(--shadow); backdrop-filter: blur(5px); transition: background-color 0.5s ease, box-shadow 0.5s ease; animation: slideUpFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; transform: translateY(20px); }";
   html += "@keyframes slideUpFadeIn { to { opacity: 1; transform: translateY(0); } }";
@@ -200,7 +196,7 @@ html += "</style></head><body>";
   html += bannerText;
   html += "</div>";
   html += "<div class='summary-grid'>";
-  html += "  <div class='card'><div class='card-title'>System Time</div><div class='card-value'>" + String(liveNowEpoch > 0 ? formatMilitaryTime(liveNowEpoch) : "--:--") + "</div></div>";
+  html += "  <div class='card'><div class='card-title'>System Time</div><div class='card-value' id='sysTimeDisplay'>" + String(liveNowEpoch > 0 ? formatMilitaryTime(liveNowEpoch) : "--:--") + "</div></div>";
   html += "  <div class='card'><div class='card-title'>Total Students</div><div class='card-value' id='statTotal'>0</div></div>";
   html += "  <div class='card'><div class='card-title'>Currently Inside</div><div class='card-value' id='statInside'>0</div></div>";
   html += "  <div class='card'><div class='card-title'>Active Bunks</div><div class='card-value' style='color:#b91c1c;' id='statBunks'>0</div></div>";
@@ -246,7 +242,7 @@ html += "</style></head><body>";
   html += "}";
 
   html += "const currentMillis = " + String(currentMillis) + ";";
-  html += "const students = [";
+  html += "let students = [";
   for (int i = 0; i < sizeof(students)/sizeof(students[0]); i++) {
       auto &s = students[i];
       unsigned long runSecs = 0;
@@ -369,11 +365,17 @@ html += "</style></head><body>";
 
   html += "render();";
 
-  html += "setInterval(() => {";
-  html += "  if(!searchQuery && currentFilter === 'all') {";
-  html += "    window.location.reload();";
-  html += "  }";
-  html += "}, 5000);";
+  html += "async function fetchData() {";
+  html += "  try {";
+  html += "    const res = await fetch('/data');";
+  html += "    if(!res.ok) return;";
+  html += "    const data = await res.json();";
+  html += "    students = data.students;";
+  html += "    document.getElementById('sysTimeDisplay').innerText = data.sysTime;";
+  html += "    render();";
+  html += "  } catch(e) { console.error('Fetch error:', e); }";
+  html += "}";
+  html += "setInterval(fetchData, 3000);";
 
   html += "</script></body></html>";
   return html;
@@ -388,6 +390,38 @@ void handleSync() {
     epochSyncSystemTicks = millis();
   }
   server.send(200, "text/plain", "OK");
+}
+
+void handleData() {
+  unsigned long currentMillis = millis();
+  unsigned long liveNowEpoch = getLiveEpochTime();
+
+  String json = "{";
+  json += "\"sysTime\": \"" + String(liveNowEpoch > 0 ? formatMilitaryTime(liveNowEpoch) : "--:--") + "\",";
+  json += "\"students\": [";
+
+  for (int i = 0; i < sizeof(students)/sizeof(students[0]); i++) {
+      auto &s = students[i];
+      unsigned long runSecs = 0;
+      if (s.stateChangeTimestamp > 0 && !s.isInside) {
+          runSecs = (currentMillis - s.stateChangeTimestamp) / 1000;
+      }
+
+      json += "{";
+      json += "\"roll\": " + String(s.rollNumber) + ",";
+      json += "\"name\": \"" + String(s.name) + "\",";
+      json += "\"inside\": " + String(s.isInside ? "true" : "false") + ",";
+      json += "\"inTime\": \"" + formatMilitaryTime(s.lastEntryTime) + "\",";
+      json += "\"outTime\": \"" + formatMilitaryTime(s.lastExitTime) + "\",";
+      json += "\"bunks\": " + String(s.bunkCount) + ",";
+      json += "\"alert\": \"" + s.colorAlert + "\",";
+      json += "\"runSecs\": " + String(runSecs);
+      json += "}";
+      if (i < (sizeof(students)/sizeof(students[0])) - 1) json += ",";
+  }
+  json += "]}";
+
+  server.send(200, "application/json", json);
 }
 
 void handleExport() {
@@ -515,6 +549,7 @@ void setup() {
   server.on("/", handleRoot);
   server.on("/sync", handleSync);
   server.on("/export", handleExport);
+  server.on("/data", handleData);
   server.begin();
 }
 

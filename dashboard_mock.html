@@ -28,15 +28,11 @@
   --container-bg: rgba(31, 41, 55, 0.85);
 }
 body { margin: 0; color: var(--text-main); font-family: 'Inter', sans-serif; padding: 20px; transition: background-color 0.5s ease, color 0.5s ease;
-  background: linear-gradient(115deg, transparent 20%, rgba(255,105,180,0.15) 45%, rgba(135,206,235,0.15) 55%, transparent 80%), conic-gradient(from 45deg, rgba(230,230,250,0.2), rgba(240,255,255,0.2), rgba(255,228,225,0.2), rgba(230,230,250,0.2));
+  background-image: url('https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=2000&auto=format&fit=crop');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
   background-color: var(--bg);
-  background-size: 200% 200%;
-  animation: iridescence 10s ease infinite;
-}
-@keyframes iridescence {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
 }
 .container { max-width: 1200px; margin: 0 auto; background: var(--container-bg); padding: 30px; border-radius: 12px; box-shadow: 0 4px 30px var(--shadow); backdrop-filter: blur(5px); transition: background-color 0.5s ease, box-shadow 0.5s ease; animation: slideUpFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; transform: translateY(20px); }
 @keyframes slideUpFadeIn { to { opacity: 1; transform: translateY(0); } }
@@ -96,7 +92,7 @@ tr:last-child td { border-bottom: none; }
 <div style='margin-bottom: 20px; padding: 15px; border-radius: 8px; font-weight: bold; text-align: center;' class='" + bannerClass + "'>
 </div>
 <div class='summary-grid'>
-  <div class='card'><div class='card-title'>System Time</div><div class='card-value'>0850hrs</div></div>
+  <div class='card'><div class='card-title'>System Time</div><div class='card-value' id='sysTimeDisplay'>0850hrs</div></div>
   <div class='card'><div class='card-title'>Total Students</div><div class='card-value' id='statTotal'>0</div></div>
   <div class='card'><div class='card-title'>Currently Inside</div><div class='card-value' id='statInside'>0</div></div>
   <div class='card'><div class='card-title'>Active Bunks</div><div class='card-value' style='color:#b91c1c;' id='statBunks'>0</div></div>
@@ -134,7 +130,7 @@ if (false) {
   // fetch disabled in mock
 }
 const currentMillis = 1000000;
-const students = [
+let students = [
   {roll: 1, name: 'Yuvraj Singh', inside: true, inTime: '0815hrs', outTime: '--', bunks: 0, alert: 'GREEN', runSecs: 930},
   {roll: 2, name: 'Yash Pratap', inside: false, inTime: '0810hrs', outTime: '0820hrs', bunks: 2, alert: 'RED', runSecs: 1200},
   {roll: 3, name: 'Amit Kumar', inside: true, inTime: '0800hrs', outTime: '--', bunks: 0, alert: 'GREEN', runSecs: 3600},
@@ -225,9 +221,15 @@ document.getElementById('toggleAllBtn').addEventListener('click', (e) => {
   }
 });
 render();
-setInterval(() => {
-  if(!searchQuery && currentFilter === 'all') {
-    window.location.reload();
-  }
-}, 5000);
+async function fetchData() {
+  try {
+    const res = await fetch('/data');
+    if(!res.ok) return;
+    const data = await res.json();
+    students = data.students;
+    document.getElementById('sysTimeDisplay').innerText = data.sysTime;
+    render();
+  } catch(e) { console.error('Fetch error:', e); }
+}
+// setInterval(fetchData, 3000); disabled in mock
 </script></body></html>
