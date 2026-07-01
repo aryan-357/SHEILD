@@ -270,7 +270,7 @@ html += "</style></head><body>";
   html += "  activeStudents.sort((a,b) => b.runSecs - a.runSecs);"; // Sort by current duration descending
 
   html += "  if(activeStudents.length === 0) {";
-  html += "    activeHTML = '<tr><td colspan=\"7\" style='text-align:center; color:#6b7280; padding:20px;'>No active cases. All clear.</td></tr>';";
+  html += "    activeHTML = `<tr><td colspan=\"7\" style='text-align:center; color:#6b7280; padding:20px;'>No active cases. All clear.</td></tr>`;";
   html += "  } else {";
   html += "    activeStudents.forEach(s => {";
   html += "      let alertClass = s.alert === 'RED' ? 'alert-red' : (s.alert === 'YELLOW' ? 'alert-yellow' : 'alert-green');";
@@ -302,7 +302,7 @@ html += "</style></head><body>";
   html += "  });";
 
   html += "  document.getElementById('activeTableBody').innerHTML = activeHTML;";
-  html += "  document.getElementById('allTableBody').innerHTML = allHTML || '<tr><td colspan=\"7\" style='text-align:center;'>No matching students found.</td></tr>';";
+  html += "  document.getElementById('allTableBody').innerHTML = allHTML || `<tr><td colspan=\"7\" style='text-align:center;'>No matching students found.</td></tr>`;";
   html += "}";
 
   html += "document.getElementById('searchInput').addEventListener('input', (e) => {";
@@ -418,8 +418,7 @@ void handleExport() {
       pdfHtml += "lastDur: " + String(s.lastBunkDuration) + ",";
       pdfHtml += "lastExit: '" + formatMilitaryTime(s.lastExitTime) + "',";
       pdfHtml += "lastEntry: '" + formatMilitaryTime(s.lastEntryTime) + "',";
-      pdfHtml += "isInside: " + String(s.isInside ? "true" : "false") + ",";
-      pdfHtml += "bunkStart: '" + formatMilitaryTime(s.currentBunkStart > 0 ? s.currentBunkStart : 0) + "'";
+      pdfHtml += "isInside: " + String(s.isInside ? "true" : "false");
       pdfHtml += "}";
       if (i < (sizeof(students)/sizeof(students[0])) - 1) pdfHtml += ",";
   }
