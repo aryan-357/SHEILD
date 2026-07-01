@@ -14,8 +14,18 @@
   --radius: 8px;
   --shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
-body { margin: 0; background: var(--bg); color: var(--text-main); font-family: 'Inter', sans-serif; padding: 20px; }
-.container { max-width: 1200px; margin: 0 auto; }
+body { margin: 0; color: var(--text-main); font-family: 'Inter', sans-serif; padding: 20px;
+  background: linear-gradient(115deg, transparent 20%, rgba(255,105,180,0.15) 45%, rgba(135,206,235,0.15) 55%, transparent 80%), conic-gradient(from 45deg, rgba(230,230,250,0.2), rgba(240,255,255,0.2), rgba(255,228,225,0.2), rgba(230,230,250,0.2));
+  background-color: var(--bg);
+  background-size: 200% 200%;
+  animation: iridescence 10s ease infinite;
+}
+@keyframes iridescence {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.container { max-width: 1200px; margin: 0 auto; background: rgba(255, 255, 255, 0.85); padding: 30px; border-radius: 12px; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1); backdrop-filter: blur(5px); }
 .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid var(--primary); padding-bottom: 20px; }
 .header h1 { margin: 0; font-size: 24px; font-weight: 700; text-transform: uppercase; letter-spacing: -0.5px; }
 .header .subtitle { color: var(--text-muted); font-size: 13px; font-weight: 500; }
@@ -93,7 +103,7 @@ tr:last-child td { border-bottom: none; }
 </div>
 <script>  const now = new Date();
 const localSecondsSinceMidnight = Math.floor((now.getHours() * 3600) + (now.getMinutes() * 60) + now.getSeconds());
-if (" + String(liveNowEpoch == 0 ? "true" : "false") + ") {
+if (false) {
   // fetch disabled in mock
 }
 const currentMillis = 1000000;
@@ -133,7 +143,7 @@ function render() {
   let allHTML = '';
   let activeStudents = filtered.filter(s => s.alert === 'RED' || s.alert === 'YELLOW');
   if(activeStudents.length === 0) {
-    activeHTML = '<tr><td colspan="7" style='text-align:center; color:#6b7280; padding:20px;'>No active cases. All clear.</td></tr>';
+    activeHTML = `<tr><td colspan="7" style='text-align:center; color:#6b7280; padding:20px;'>No active cases. All clear.</td></tr>`;
   } else {
     activeStudents.forEach(s => {
       let alertClass = s.alert === 'RED' ? 'alert-red' : (s.alert === 'YELLOW' ? 'alert-yellow' : 'alert-green');
@@ -163,7 +173,7 @@ function render() {
     </tr>`;
   });
   document.getElementById('activeTableBody').innerHTML = activeHTML;
-  document.getElementById('allTableBody').innerHTML = allHTML || '<tr><td colspan="7" style='text-align:center;'>No matching students found.</td></tr>';
+  document.getElementById('allTableBody').innerHTML = allHTML || `<tr><td colspan="7" style='text-align:center;'>No matching students found.</td></tr>`;
 }
 document.getElementById('searchInput').addEventListener('input', (e) => {
   searchQuery = e.target.value.toLowerCase();
