@@ -1,0 +1,97 @@
+<!DOCTYPE html><html lang='en'><head>
+<meta charset='UTF-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0'>
+<title>SHIELD SYSTEM v14.0</title>
+<style>
+:root {
+  --bg-color: #0f172a;
+  --card-bg: #1e293b;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --accent: #38bdf8;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --border: #334155;
+}
+body { background-color: var(--bg-color); color: var(--text-main); font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 20px; box-sizing: border-box; min-height: 100vh; }
+.container { max-width: 1200px; margin: 0 auto; }
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 20px; }
+.header-left { display: flex; flex-direction: column; }
+h1 { font-size: 36px; font-weight: 800; margin: 0; color: var(--accent); letter-spacing: 2px; text-shadow: 0 0 15px rgba(56,189,248,0.4); }
+.acronym { font-size: 14px; color: var(--text-muted); font-weight: 600; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px; }
+.header-right { text-align: right; }
+.clock-display { font-family: monospace; font-size: 24px; color: var(--warning); font-weight: 700; margin-bottom: 10px; text-shadow: 0 0 10px rgba(245,158,11,0.3); background: rgba(0,0,0,0.3); padding: 10px 20px; border-radius: 8px; border: 1px solid var(--border); }
+.export-btn { display: inline-flex; align-items: center; justify-content: center; background: var(--accent); color: #0f172a; border: none; padding: 10px 24px; font-weight: 700; border-radius: 6px; cursor: pointer; font-size: 14px; text-decoration: none; transition: all 0.2s; text-transform: uppercase; letter-spacing: 1px; }
+.export-btn:hover { background: #7dd3fc; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(56,189,248,0.3); }
+.status-banner { padding: 16px 24px; border-radius: 12px; font-weight: 700; font-size: 18px; margin-bottom: 30px; display: flex; align-items: center; justify-content: center; letter-spacing: 1px; text-align: center; }
+.status-secure { background: rgba(16, 185, 129, 0.1); border: 2px solid var(--success); color: var(--success); box-shadow: 0 0 20px rgba(16,185,129,0.1); }
+.table-container { background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border); overflow-x: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+table { width: 100%; border-collapse: collapse; text-align: left; }
+th, td { padding: 16px 20px; font-size: 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th { background-color: rgba(0,0,0,0.2); color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-size: 12px; }
+tbody tr:hover { background-color: rgba(255,255,255,0.02); }
+tbody tr:last-child td { border-bottom: none; }
+.student-name { font-weight: 600; font-size: 15px; color: var(--text-main); }
+.stat-pill { background: rgba(0,0,0,0.3); padding: 4px 10px; border-radius: 20px; font-family: monospace; font-size: 13px; color: var(--text-muted); }
+.loc-badge { display: inline-block; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 12px; letter-spacing: 0.5px; }
+.loc-inside { background: rgba(16,185,129,0.15); color: var(--success); }
+.loc-outside { background: rgba(245,158,11,0.15); color: var(--warning); }
+.timestamp { font-family: monospace; color: var(--text-muted); font-size: 13px; }
+.duration { font-family: monospace; color: var(--accent); font-size: 13px; }
+.bunk-count { font-weight: 800; font-size: 16px; color: var(--danger); text-align: center; font-family: monospace; }
+.alert-badge { display: inline-block; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 12px; letter-spacing: 0.5px; text-align: center; min-width: 100px; }
+.badge-G { background: rgba(16,185,129,0.15); color: var(--success); border: 1px solid rgba(16,185,129,0.3); }
+.badge-Y { background: rgba(245,158,11,0.15); color: var(--warning); border: 1px solid rgba(245,158,11,0.3); }
+.badge-R { background: rgba(239,68,68,0.15); color: var(--danger); border: 1px solid rgba(239,68,68,0.3); }
+</style></head><body>
+
+<div class='container'>
+  <div class='header'>
+    <div class='header-left'>
+      <h1>SHIELD</h1>
+      <div class='acronym'>Secure Hardware Interface for Entry Logging & Discipline</div>
+    </div>
+    <div class='header-right'>
+      <div class='clock-display'>MASTER TIME: 0830hrs</div>
+      <a href='export_mock.html' class='export-btn'>Export PDF Report</a>
+    </div>
+  </div>
+
+  <div class='status-banner status-secure'>
+    PORTAL SECURE
+  </div>
+
+  <div class='table-container'>
+    <table>
+      <thead>
+        <tr>
+          <th>Student Account</th><th>Entries</th><th>Exits</th><th>Zone Loc</th><th>Timestamps (In/Out)</th><th>Running Duration</th><th>Total Bunks</th><th>Alert Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class='student-name'>Yuvraj Singh</td>
+          <td><span class='stat-pill'>1</span></td>
+          <td><span class='stat-pill'>0</span></td>
+          <td><span class='loc-badge loc-inside'>INSIDE</span></td>
+          <td class='timestamp'>In: 0815hrs <br> Out: --</td>
+          <td class='duration'>15m 30s Ago</td>
+          <td class='bunk-count'>0</td>
+          <td><span class='alert-badge badge-G'>SECURE</span></td>
+        </tr>
+        <tr>
+          <td class='student-name'>Yash Pratap</td>
+          <td><span class='stat-pill'>1</span></td>
+          <td><span class='stat-pill'>1</span></td>
+          <td><span class='loc-badge loc-outside'>OUTSIDE</span></td>
+          <td class='timestamp'>In: 0810hrs <br> Out: 0820hrs</td>
+          <td class='duration'>10m 00s Ago</td>
+          <td class='bunk-count'>1</td>
+          <td><span class='alert-badge badge-R'>CRITICAL BUNK</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+</body></html>

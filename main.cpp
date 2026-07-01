@@ -75,85 +75,129 @@ String getDashboardHTML() {
   unsigned long currentMillis = millis();
   unsigned long liveNowEpoch = getLiveEpochTime();
 
-  String html = "<!DOCTYPE html><html><head>";
+  String html = "<!DOCTYPE html><html lang='en'><head>";
   html += "<meta charset='UTF-8'>";
+  html += "<meta name='viewport' content='width=device-width, initial-scale=1.0'>";
   html += "<title>SHIELD SYSTEM v14.0</title>";
   html += "<meta http-equiv='refresh' content='1'>";
   html += "<style>";
+  html += ":root {";
+  html += "  --bg-color: #0f172a;";
+  html += "  --card-bg: #1e293b;";
+  html += "  --text-main: #f8fafc;";
+  html += "  --text-muted: #94a3b8;";
+  html += "  --accent: #38bdf8;";
+  html += "  --success: #10b981;";
+  html += "  --warning: #f59e0b;";
+  html += "  --danger: #ef4444;";
+  html += "  --border: #334155;";
+  html += "}";
 
   if (physicalBreachAlert || tailgatingAlert) {
-    html += "body { background-color: #120101; color: #FF3B30; font-family: Arial, sans-serif; text-align: center; margin: 30px; border: 6px dashed #FF3B30; }";
+    html += "body { background-color: #450a0a; color: var(--text-main); font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 20px; border: 8px solid var(--danger); box-sizing: border-box; min-height: 100vh; }";
   } else {
-    html += "body { background-color: #02060D; color: #00E5FF; font-family: Arial, sans-serif; text-align: center; margin: 30px; border: 6px solid transparent; }";
+    html += "body { background-color: var(--bg-color); color: var(--text-main); font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 20px; box-sizing: border-box; min-height: 100vh; }";
   }
 
-  html += "h1 { font-size: 32px; text-shadow: 0 0 12px currentColor; letter-spacing: 3px; margin-bottom: 2px; }";
-  html += ".acronym { font-size: 13px; color: #88A0B0; font-weight: bold; letter-spacing: 1px; margin-bottom: 15px; text-transform: uppercase; }";
-  html += ".clock-display { font-size: 18px; color: #FFFF00; font-weight: bold; margin-bottom: 15px; text-shadow: 0 0 5px #FFFF00; }";
-  html += ".box { display: inline-block; padding: 12px 25px; background: #0A111A; border: 2px solid #1A2636; font-weight: bold; margin-bottom: 20px; border-radius: 4px; }";
-  html += ".export-btn { background: #FF3B30; color: #FFFFFF; border: none; padding: 10px 20px; font-weight: bold; border-radius: 4px; cursor: pointer; margin-bottom: 15px; font-size:14px; text-decoration: none; display: inline-block; }";
-  html += "table { width: 95%; margin: 0 auto; border-collapse: collapse; background: #0A111A; text-align: left; }";
-  html += "th, td { padding: 12px; border-bottom: 1px solid #1A2636; font-size: 14px; }";
-  html += "th { background-color: #101B26; color: #00E5FF; }";
-  html += ".INSIDE { color: #00FF66; font-weight: bold; }";
-  html += ".OUTSIDE { color: #FF9F0A; font-weight: bold; }";
-  html += ".BUNK-COUNT { color: #FF3B30; font-weight: bold; font-size: 16px; }";
-  html += ".G { background: rgba(0, 255, 102, 0.2); color: #00FF66; padding: 4px 8px; border: 1px solid #00FF66; font-weight: bold; }";
-  html += ".Y { background: rgba(255, 159, 10, 0.2); color: #FF9F0A; padding: 4px 8px; border: 1px solid #FF9F0A; font-weight: bold; }";
-  html += ".R { background: rgba(255, 59, 48, 0.3); color: #FF3B30; padding: 4px 8px; border: 1px solid #FF3B30; font-weight: bold; }";
+  html += ".container { max-width: 1200px; margin: 0 auto; }";
+  html += ".header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 20px; }";
+  html += ".header-left { display: flex; flex-direction: column; }";
+  html += "h1 { font-size: 36px; font-weight: 800; margin: 0; color: var(--accent); letter-spacing: 2px; text-shadow: 0 0 15px rgba(56,189,248,0.4); }";
+  html += ".acronym { font-size: 14px; color: var(--text-muted); font-weight: 600; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px; }";
+  html += ".header-right { text-align: right; }";
+  html += ".clock-display { font-family: monospace; font-size: 24px; color: var(--warning); font-weight: 700; margin-bottom: 10px; text-shadow: 0 0 10px rgba(245,158,11,0.3); background: rgba(0,0,0,0.3); padding: 10px 20px; border-radius: 8px; border: 1px solid var(--border); }";
+  html += ".export-btn { display: inline-flex; align-items: center; justify-content: center; background: var(--accent); color: #0f172a; border: none; padding: 10px 24px; font-weight: 700; border-radius: 6px; cursor: pointer; font-size: 14px; text-decoration: none; transition: all 0.2s; text-transform: uppercase; letter-spacing: 1px; }";
+  html += ".export-btn:hover { background: #7dd3fc; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(56,189,248,0.3); }";
+  html += ".status-banner { padding: 16px 24px; border-radius: 12px; font-weight: 700; font-size: 18px; margin-bottom: 30px; display: flex; align-items: center; justify-content: center; letter-spacing: 1px; text-align: center; }";
+  html += ".status-secure { background: rgba(16, 185, 129, 0.1); border: 2px solid var(--success); color: var(--success); box-shadow: 0 0 20px rgba(16,185,129,0.1); }";
+  html += ".status-alert { background: rgba(239, 68, 68, 0.1); border: 2px solid var(--danger); color: var(--danger); box-shadow: 0 0 20px rgba(239,68,68,0.2); animation: pulse 2s infinite; }";
+  html += "@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); } 70% { box-shadow: 0 0 0 15px rgba(239,68,68,0); } 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); } }";
+  html += ".table-container { background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border); overflow-x: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }";
+  html += "table { width: 100%; border-collapse: collapse; text-align: left; }";
+  html += "th, td { padding: 16px 20px; font-size: 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }";
+  html += "th { background-color: rgba(0,0,0,0.2); color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-size: 12px; }";
+  html += "tbody tr:hover { background-color: rgba(255,255,255,0.02); }";
+  html += "tbody tr:last-child td { border-bottom: none; }";
+  html += ".student-name { font-weight: 600; font-size: 15px; color: var(--text-main); }";
+  html += ".stat-pill { background: rgba(0,0,0,0.3); padding: 4px 10px; border-radius: 20px; font-family: monospace; font-size: 13px; color: var(--text-muted); }";
+  html += ".loc-badge { display: inline-block; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 12px; letter-spacing: 0.5px; }";
+  html += ".loc-inside { background: rgba(16,185,129,0.15); color: var(--success); }";
+  html += ".loc-outside { background: rgba(245,158,11,0.15); color: var(--warning); }";
+  html += ".timestamp { font-family: monospace; color: var(--text-muted); font-size: 13px; }";
+  html += ".duration { font-family: monospace; color: var(--accent); font-size: 13px; }";
+  html += ".bunk-count { font-weight: 800; font-size: 16px; color: var(--danger); text-align: center; font-family: monospace; }";
+  html += ".alert-badge { display: inline-block; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 12px; letter-spacing: 0.5px; text-align: center; min-width: 100px; }";
+  html += ".badge-G { background: rgba(16,185,129,0.15); color: var(--success); border: 1px solid rgba(16,185,129,0.3); }";
+  html += ".badge-Y { background: rgba(245,158,11,0.15); color: var(--warning); border: 1px solid rgba(245,158,11,0.3); }";
+  html += ".badge-R { background: rgba(239,68,68,0.15); color: var(--danger); border: 1px solid rgba(239,68,68,0.3); }";
   html += "</style></head><body>";
 
-  html += "<h1>SHIELD</h1>";
-  html += "<div class='acronym'>Secure Hardware Interface for Entry Logging and Discipline</div>";
+  html += "<div class='container'>";
 
-  html += "<div class='clock-display'>MASTER TIME: " + (liveNowEpoch > 0 ? formatMilitaryTime(liveNowEpoch) : "SYNCHRONIZING WITH COMPUTER...") + "</div>";
-  html += "<a href='/export' class='export-btn'>PDF REPORT</a><br>";
-
-  bool isDoorOpen = digitalRead(HALL_PIN);
-
-  html += "<div class='box' style='color: " + String((isDoorOpen || physicalBreachAlert || tailgatingAlert) ? "#FF3B30" : "#00FF66") + ";'>";
-  if (tailgatingAlert) {
-    html += "PORTAL SECURITY LEVEL: TAILGATING DETECTED MULTIPLE PERSON ENTRIES";
-  } else if (physicalBreachAlert) {
-    html += "PORTAL SECURITY LEVEL: UNPAIRED SECURITY BREACH NO CARD";
-  } else {
-    html += "PORTAL SECURITY LEVEL: " + String(isDoorOpen ? "DOOR OPEN" : "SECURE");
-  }
+  html += "<div class='header'>";
+  html += "  <div class='header-left'>";
+  html += "    <h1>SHIELD</h1>";
+  html += "    <div class='acronym'>Secure Hardware Interface for Entry Logging & Discipline</div>";
+  html += "  </div>";
+  html += "  <div class='header-right'>";
+  html += "    <div class='clock-display'>MASTER TIME: " + String(liveNowEpoch > 0 ? formatMilitaryTime(liveNowEpoch) : "SYNCING...") + "</div>";
+  html += "    <a href='/export' class='export-btn'>Export PDF Report</a>";
+  html += "  </div>";
   html += "</div>";
 
-  html += "<table><thead><tr>";
-  html += "<th>STUDENT ACCOUNT</th><th>ENTRIES</th><th>EXITS</th><th>ZONE LOC</th><th>TIMESTAMPS</th><th>RUNNING DURATION</th><th>TOTAL BUNKS</th><th>ALERT STATUS</th>";
+  bool isDoorOpen = digitalRead(HALL_PIN);
+  bool isAlert = isDoorOpen || physicalBreachAlert || tailgatingAlert;
+
+  String bannerClass = isAlert ? "status-alert" : "status-secure";
+  String bannerText = "PORTAL SECURE";
+
+  if (tailgatingAlert) {
+    bannerText = "CRITICAL ALERT: TAILGATING DETECTED - MULTIPLE PERSON ENTRIES";
+  } else if (physicalBreachAlert) {
+    bannerText = "CRITICAL ALERT: UNPAIRED SECURITY BREACH - NO CARD";
+  } else if (isDoorOpen) {
+    bannerText = "WARNING: PORTAL DOOR OPEN";
+  }
+
+  html += "<div class='status-banner " + bannerClass + "'>";
+  html += bannerText;
+  html += "</div>";
+
+  html += "<div class='table-container'><table><thead><tr>";
+  html += "<th>Student Account</th><th>Entries</th><th>Exits</th><th>Zone Loc</th><th>Timestamps (In/Out)</th><th>Running Duration</th><th>Total Bunks</th><th>Alert Status</th>";
   html += "</tr></thead><tbody>";
 
   for (auto &s : students) {
     html += "<tr>";
-    html += "<td>" + String(s.name) + "</td>";
-    html += "<td>" + String(s.entryCount) + "</td>";
-    html += "<td>" + String(s.exitCount) + "</td>";
-    html += "<td class='" + String(s.isInside ? "INSIDE" : "OUTSIDE") + "'>" + String(s.isInside ? "INSIDE" : "OUTSIDE") + "</td>";
-    html += "<td>In: " + formatMilitaryTime(s.lastEntryTime) + " | Out: " + formatMilitaryTime(s.lastExitTime) + "</td>";
+    html += "<td class='student-name'>" + String(s.name) + "</td>";
+    html += "<td><span class='stat-pill'>" + String(s.entryCount) + "</span></td>";
+    html += "<td><span class='stat-pill'>" + String(s.exitCount) + "</span></td>";
+    html += "<td><span class='loc-badge " + String(s.isInside ? "loc-inside" : "loc-outside") + "'>" + String(s.isInside ? "INSIDE" : "OUTSIDE") + "</span></td>";
+    html += "<td class='timestamp'>In: " + formatMilitaryTime(s.lastEntryTime) + " <br> Out: " + formatMilitaryTime(s.lastExitTime) + "</td>";
 
     if (s.stateChangeTimestamp == 0) {
-      html += "<td>NO DATA</td>";
+      html += "<td class='duration'>--</td>";
     } else {
       unsigned long totalDeltaSecs = (currentMillis - s.stateChangeTimestamp) / 1000;
       unsigned long runMinutes = totalDeltaSecs / 60;
       unsigned long runSeconds = totalDeltaSecs % 60;
-      html += "<td>" + String(runMinutes) + "m " + String(runSeconds) + "s Ago</td>";
+      html += "<td class='duration'>" + String(runMinutes) + "m " + String(runSeconds) + "s Ago</td>";
     }
 
-    html += "<td class='BUNK-COUNT'>" + String(s.bunkCount) + "</td>";
+    html += "<td class='bunk-count'>" + String(s.bunkCount) + "</td>";
 
-    String alertClass = "G";
+    String alertClass = "badge-G";
     String alertText = "SECURE";
-    if (s.colorAlert == "YELLOW") { alertClass = "Y"; alertText = "WARNING (10s+)"; }
-    if (s.colorAlert == "RED") { alertClass = "R"; alertText = "CRITICAL BUNK"; }
+    if (s.colorAlert == "YELLOW") { alertClass = "badge-Y"; alertText = "WARNING (10s+)"; }
+    if (s.colorAlert == "RED") { alertClass = "badge-R"; alertText = "CRITICAL BUNK"; }
 
-    html += "<td><span class='" + alertClass + "'>" + alertText + "</span></td>";
+    html += "<td><span class='alert-badge " + alertClass + "'>" + alertText + "</span></td>";
     html += "</tr>";
   }
 
-  html += "</tbody></table>";
+  html += "</tbody></table></div>";
+  html += "</div>";
+
   html += "<script>";
   html += "window.onload = function() {";
   html += "  if (" + String(initialEpochSeconds) + " === 0) {";
@@ -179,43 +223,78 @@ void handleSync() {
 }
 
 void handleExport() {
-  String pdfHtml = "<!DOCTYPE html><html><head>";
+  unsigned long liveNowEpoch = getLiveEpochTime();
+  String pdfHtml = "<!DOCTYPE html><html lang='en'><head>";
   pdfHtml += "<meta charset='UTF-8'>";
-  pdfHtml += "<title>Security Log Report</title>";
+  pdfHtml += "<title>SHIELD Security Log Report</title>";
   pdfHtml += "<style>";
-  pdfHtml += "body { font-family: 'Helvetica', Arial, sans-serif; padding: 40px; color: #333; }";
-  pdfHtml += ".header { border-bottom: 3px solid #333; padding-bottom: 10px; margin-bottom: 30px; }";
-  pdfHtml += "h1 { margin: 0; color: #111; font-size: 24px; text-transform: uppercase; }";
-  pdfHtml += ".meta { font-size: 12px; color: #666; margin-top: 5px; }";
-  pdfHtml += "table { width: 100%; border-collapse: collapse; margin-top: 20px; }";
-  pdfHtml += "th, td { border: 1px solid #999; padding: 10px; text-align: left; font-size: 13px; }";
-  pdfHtml += "th { background-color: #f2f2f2; font-weight: bold; text-transform: uppercase; }";
-  pdfHtml += ".bunk { color: #cc0000; font-weight: bold; }";
+  pdfHtml += ":root {";
+  pdfHtml += "  --text-main: #1f2937;";
+  pdfHtml += "  --text-muted: #6b7280;";
+  pdfHtml += "  --border: #e5e7eb;";
+  pdfHtml += "  --primary: #2563eb;";
+  pdfHtml += "  --bg-alt: #f9fafb;";
+  pdfHtml += "}";
+  pdfHtml += "@page { margin: 20mm; size: A4 portrait; }";
+  pdfHtml += "body { font-family: system-ui, -apple-system, sans-serif; color: var(--text-main); margin: 0; padding: 0; background: #fff; line-height: 1.5; }";
+  pdfHtml += ".report-container { max-width: 800px; margin: 0 auto; padding: 20px; }";
+  pdfHtml += ".header { border-bottom: 2px solid var(--primary); padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }";
+  pdfHtml += ".header-left h1 { margin: 0 0 5px 0; color: var(--text-main); font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }";
+  pdfHtml += ".header-left .meta { font-size: 13px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 1px; }";
+  pdfHtml += ".header-right { text-align: right; }";
+  pdfHtml += ".report-time { font-family: monospace; font-size: 14px; font-weight: 600; color: var(--primary); background: #eff6ff; padding: 6px 12px; border-radius: 4px; border: 1px solid #bfdbfe; }";
+  pdfHtml += "table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }";
+  pdfHtml += "th, td { padding: 12px 16px; text-align: left; font-size: 13px; border-bottom: 1px solid var(--border); }";
+  pdfHtml += "th { background-color: var(--bg-alt); font-weight: 600; color: var(--text-muted); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }";
+  pdfHtml += "tbody tr:last-child td { border-bottom: none; }";
+  pdfHtml += "tbody tr:nth-child(even) { background-color: var(--bg-alt); }";
+  pdfHtml += ".student-name { font-weight: 600; font-size: 14px; }";
+  pdfHtml += ".bunk { color: #dc2626; font-weight: 700; font-family: monospace; font-size: 15px; }";
+  pdfHtml += ".loc { font-weight: 700; font-size: 12px; }";
+  pdfHtml += ".timestamp { font-family: monospace; color: var(--text-muted); }";
+  pdfHtml += ".status-G { color: #059669; font-weight: 700; }";
+  pdfHtml += ".status-Y { color: #d97706; font-weight: 700; }";
+  pdfHtml += ".status-R { color: #dc2626; font-weight: 700; }";
+  pdfHtml += ".footer { margin-top: 40px; text-align: center; font-size: 11px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 20px; }";
   pdfHtml += "</style></head><body>";
 
+  pdfHtml += "<div class='report-container'>";
   pdfHtml += "<div class='header'>";
-  pdfHtml += "<h1>SHIELD Log Report</h1>";
-  pdfHtml += "<div class='meta'>Secure Hardware Interface for Entry Logging and Discipline</div>";
+  pdfHtml += "  <div class='header-left'>";
+  pdfHtml += "    <h1>SHIELD LOG REPORT</h1>";
+  pdfHtml += "    <div class='meta'>Secure Hardware Interface for Entry Logging & Discipline</div>";
+  pdfHtml += "  </div>";
+  pdfHtml += "  <div class='header-right'>";
+  pdfHtml += "    <div class='report-time'>GENERATED: " + String(liveNowEpoch > 0 ? formatMilitaryTime(liveNowEpoch) : "--") + "</div>";
+  pdfHtml += "  </div>";
   pdfHtml += "</div>";
 
   pdfHtml += "<table><thead><tr>";
-  pdfHtml += "<th>Student Name</th><th>Entries</th><th>Exits</th><th>Current Location</th><th>Last Entry</th><th>Last Exit</th><th>Total Bunks</th><th>Status</th>";
+  pdfHtml += "<th>Student Name</th><th>Entries</th><th>Exits</th><th>Current Loc</th><th>Last Entry</th><th>Last Exit</th><th>Total Bunks</th><th>Alert Status</th>";
   pdfHtml += "</tr></thead><tbody>";
 
   for (auto &s : students) {
     pdfHtml += "<tr>";
-    pdfHtml += "<td>" + String(s.name) + "</td>";
+    pdfHtml += "<td class='student-name'>" + String(s.name) + "</td>";
     pdfHtml += "<td>" + String(s.entryCount) + "</td>";
     pdfHtml += "<td>" + String(s.exitCount) + "</td>";
-    pdfHtml += "<td>" + String(s.isInside ? "INSIDE" : "OUTSIDE") + "</td>";
-    pdfHtml += "<td>" + formatMilitaryTime(s.lastEntryTime) + "</td>";
-    pdfHtml += "<td>" + formatMilitaryTime(s.lastExitTime) + "</td>";
+    pdfHtml += "<td class='loc' style='color: " + String(s.isInside ? "#059669" : "#d97706") + ";'>" + String(s.isInside ? "INSIDE" : "OUTSIDE") + "</td>";
+    pdfHtml += "<td class='timestamp'>" + formatMilitaryTime(s.lastEntryTime) + "</td>";
+    pdfHtml += "<td class='timestamp'>" + formatMilitaryTime(s.lastExitTime) + "</td>";
     pdfHtml += "<td class='bunk'>" + String(s.bunkCount) + "</td>";
-    pdfHtml += "<td>" + s.colorAlert + "</td>";
+
+    String sClass = "status-G";
+    if (s.colorAlert == "YELLOW") sClass = "status-Y";
+    if (s.colorAlert == "RED") sClass = "status-R";
+
+    pdfHtml += "<td class='" + sClass + "'>" + s.colorAlert + "</td>";
     pdfHtml += "</tr>";
   }
 
   pdfHtml += "</tbody></table>";
+  pdfHtml += "<div class='footer'>Report auto-generated by SHIELD System v14.0 &bull; Official Security Record</div>";
+  pdfHtml += "</div>";
+
   pdfHtml += "<script>window.onload = function() { window.print(); }</script>";
   pdfHtml += "</body></html>";
 
