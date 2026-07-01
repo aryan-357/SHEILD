@@ -88,12 +88,25 @@ String getDashboardHTML() {
   html += ":root {";
   html += "  --bg: #f8f9fa;";
   html += "  --surface: #ffffff;";
+  html += "  --surface-alt: #f9fafb;";
   html += "  --text-main: #111827;";
   html += "  --text-muted: #6b7280;";
   html += "  --border: #e5e7eb;";
   html += "  --primary: #000000;";
   html += "  --radius: 8px;";
   html += "  --shadow: 0 1px 3px rgba(0,0,0,0.1);";
+  html += "  --container-bg: rgba(255, 255, 255, 0.85);";
+  html += "}";
+  html += "[data-theme='dark'] {";
+  html += "  --bg: #111827;";
+  html += "  --surface: #1f2937;";
+  html += "  --surface-alt: #374151;";
+  html += "  --text-main: #f9fafb;";
+  html += "  --text-muted: #9ca3af;";
+  html += "  --border: #374151;";
+  html += "  --primary: #ffffff;";
+  html += "  --shadow: 0 1px 3px rgba(0,0,0,0.5);";
+  html += "  --container-bg: rgba(31, 41, 55, 0.85);";
   html += "}";
   html += "body { margin: 0; color: var(--text-main); font-family: 'Inter', sans-serif; padding: 20px; ";
   html += "  background: linear-gradient(115deg, transparent 20%, rgba(255,105,180,0.15) 45%, rgba(135,206,235,0.15) 55%, transparent 80%), conic-gradient(from 45deg, rgba(230,230,250,0.2), rgba(240,255,255,0.2), rgba(255,228,225,0.2), rgba(230,230,250,0.2));";
@@ -106,7 +119,7 @@ String getDashboardHTML() {
   html += "  50% { background-position: 100% 50%; }";
   html += "  100% { background-position: 0% 50%; }";
   html += "}";
-  html += ".container { max-width: 1200px; margin: 0 auto; background: rgba(255, 255, 255, 0.85); padding: 30px; border-radius: 12px; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1); backdrop-filter: blur(5px); }";
+  html += ".container { max-width: 1200px; margin: 0 auto; background: var(--container-bg); padding: 30px; border-radius: 12px; box-shadow: 0 4px 30px var(--shadow); backdrop-filter: blur(5px); }";
 
   html += ".header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid var(--primary); padding-bottom: 20px; }";
   html += ".header h1 { margin: 0; font-size: 24px; font-weight: 700; text-transform: uppercase; letter-spacing: -0.5px; }";
@@ -114,8 +127,8 @@ String getDashboardHTML() {
   html += ".controls { display: flex; gap: 15px; }";
   html += ".btn { background: var(--surface); color: var(--primary); border: 1px solid var(--border); padding: 8px 16px; border-radius: var(--radius); font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; transition: 0.2s; box-shadow: var(--shadow); }";
   html += ".btn:hover { background: var(--bg); border-color: var(--text-muted); }";
-  html += ".btn-primary { background: var(--primary); color: white; border-color: var(--primary); }";
-  html += ".btn-primary:hover { background: #333; }";
+  html += ".btn-primary { background: var(--primary); color: var(--bg); border-color: var(--primary); }";
+  html += ".btn-primary:hover { opacity: 0.8; }";
 
   html += ".summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }";
   html += ".card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }";
@@ -124,7 +137,7 @@ String getDashboardHTML() {
 
   html += ".toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 20px; }";
   html += ".search-box { flex: 1; max-width: 400px; }";
-  html += ".search-box input { width: 100%; padding: 10px 15px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; box-sizing: border-box; }";
+  html += ".search-box input { width: 100%; padding: 10px 15px; border: 1px solid var(--border); background: var(--surface); color: var(--text-main); border-radius: var(--radius); font-size: 14px; box-sizing: border-box; }";
   html += ".filters { display: flex; gap: 10px; }";
   html += ".filter-btn { background: var(--surface); border: 1px solid var(--border); padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text-muted); }";
   html += ".filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }";
@@ -134,7 +147,7 @@ String getDashboardHTML() {
 
   html += "table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }";
   html += "th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); font-size: 14px; }";
-  html += "th { background: #f9fafb; font-weight: 600; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }";
+  html += "th { background: var(--surface-alt); font-weight: 600; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }";
   html += "tr:last-child td { border-bottom: none; }";
   html += ".mono { font-family: 'JetBrains Mono', monospace; }";
   html += ".status-indicator { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; }";
@@ -159,6 +172,7 @@ html += "</style></head><body>";
   html += "    <div class='subtitle'>Daily Attendance & Bunk Monitor</div>";
   html += "  </div>";
   html += "  <div class='controls'>";
+  html += "    <button id='themeToggleBtn' class='btn'>Toggle Theme</button>";
   html += "    <a href='/export' class='btn btn-primary'>Export Daily Report</a>";
   html += "  </div>";
   html += "</div>";
@@ -212,7 +226,15 @@ html += "</style></head><body>";
 
   html += "</div>";
 
-  html += "<script>";  html += "const now = new Date();";
+  html += "<script>";
+  html += "const themeToggleBtn = document.getElementById('themeToggleBtn');";
+  html += "const currentTheme = localStorage.getItem('theme') || 'light';";
+  html += "if (currentTheme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');";
+  html += "themeToggleBtn.addEventListener('click', () => {";
+  html += "  let theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';";
+  html += "  document.documentElement.setAttribute('data-theme', theme);";
+  html += "  localStorage.setItem('theme', theme);";
+  html += "});";  html += "const now = new Date();";
   html += "const localSecondsSinceMidnight = Math.floor((now.getHours() * 3600) + (now.getMinutes() * 60) + now.getSeconds());";
   html += "if (" + String(liveNowEpoch == 0 ? "true" : "false") + ") {";
   html += "  fetch('/sync?t=' + localSecondsSinceMidnight);";
