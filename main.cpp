@@ -21,6 +21,7 @@ WebServer server(80);
 
 struct Student {
   byte uid[4];
+  int rollNumber;
   const char* name;
   int entryCount;
   int exitCount;
@@ -31,11 +32,14 @@ struct Student {
   String colorAlert;
   int bunkCount;
   bool bunkLoggedForCurrentCycle;
+  unsigned long totalBunkDuration;
+  unsigned long currentBunkStart;
+  unsigned long lastBunkDuration;
 };
 
 Student students[] = {
-  {{0x9E, 0x60, 0x02, 0x02}, "Yuvraj Singh", 0, 0, false, 0, 0, 0, "GREEN", 0, false},
-  {{0x74, 0x8A, 0xBB, 0x02}, "Yash Pratap",  0, 0, false, 0, 0, 0, "GREEN", 0, false}
+  {{0x9E, 0x60, 0x02, 0x02}, 1, "Yuvraj Singh", 0, 0, false, 0, 0, 0, "GREEN", 0, false, 0, 0, 0},
+  {{0x74, 0x8A, 0xBB, 0x02}, 2, "Yash Pratap",  0, 0, false, 0, 0, 0, "GREEN", 0, false, 0, 0, 0}
 };
 
 unsigned long windowStartTime = 0;
@@ -72,107 +76,80 @@ unsigned long getLiveEpochTime() {
 }
 
 String getDashboardHTML() {
-  unsigned long currentMillis = millis();
   unsigned long liveNowEpoch = getLiveEpochTime();
+  unsigned long currentMillis = millis();
 
   String html = "<!DOCTYPE html><html lang='en'><head>";
   html += "<meta charset='UTF-8'>";
   html += "<meta name='viewport' content='width=device-width, initial-scale=1.0'>";
-  html += "<title>SHIELD SYSTEM v14.0</title>";
-  html += "<meta http-equiv='refresh' content='1'>";
-  html += "<link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap' rel='stylesheet'>";
+  html += "<title>SHIELD Admin</title>";
+  html += "<link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap' rel='stylesheet'>";
   html += "<style>";
   html += ":root {";
-  html += "  --bg-dark: #030712;";
-  html += "  --glass-bg: rgba(17, 24, 39, 0.6);";
-  html += "  --glass-border: rgba(255, 255, 255, 0.08);";
-  html += "  --text-main: #f9fafb;";
-  html += "  --text-muted: #9ca3af;";
-  html += "  --accent-glow: #3b82f6;";
-  html += "  --success-glow: #10b981;";
-  html += "  --warning-glow: #f59e0b;";
-  html += "  --danger-glow: #ef4444;";
+  html += "  --bg: #f8f9fa;";
+  html += "  --surface: #ffffff;";
+  html += "  --text-main: #111827;";
+  html += "  --text-muted: #6b7280;";
+  html += "  --border: #e5e7eb;";
+  html += "  --primary: #000000;";
+  html += "  --radius: 8px;";
+  html += "  --shadow: 0 1px 3px rgba(0,0,0,0.1);";
   html += "}";
+  html += "body { margin: 0; background: var(--bg); color: var(--text-main); font-family: 'Inter', sans-serif; padding: 20px; }";
+  html += ".container { max-width: 1200px; margin: 0 auto; }";
 
-  html += "body { margin: 0; min-height: 100vh; background-color: var(--bg-dark); background-image: radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15), transparent 25%), radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.1), transparent 25%); background-attachment: fixed; color: var(--text-main); font-family: 'Inter', sans-serif; padding: 40px 20px; box-sizing: border-box; overflow-x: hidden; }";
+  html += ".header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid var(--primary); padding-bottom: 20px; }";
+  html += ".header h1 { margin: 0; font-size: 24px; font-weight: 700; text-transform: uppercase; letter-spacing: -0.5px; }";
+  html += ".header .subtitle { color: var(--text-muted); font-size: 13px; font-weight: 500; }";
+  html += ".controls { display: flex; gap: 15px; }";
+  html += ".btn { background: var(--surface); color: var(--primary); border: 1px solid var(--border); padding: 8px 16px; border-radius: var(--radius); font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; transition: 0.2s; box-shadow: var(--shadow); }";
+  html += ".btn:hover { background: var(--bg); border-color: var(--text-muted); }";
+  html += ".btn-primary { background: var(--primary); color: white; border-color: var(--primary); }";
+  html += ".btn-primary:hover { background: #333; }";
 
-  if (physicalBreachAlert || tailgatingAlert) {
-    html += "body { background-image: radial-gradient(circle at 50% 50%, rgba(239, 68, 68, 0.2), transparent 60%); box-shadow: inset 0 0 100px rgba(239, 68, 68, 0.2); animation: redAlert 2s infinite alternate; }";
-    html += "@keyframes redAlert { 0% { box-shadow: inset 0 0 50px rgba(239, 68, 68, 0.1); } 100% { box-shadow: inset 0 0 150px rgba(239, 68, 68, 0.4); } }";
-  }
+  html += ".summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }";
+  html += ".card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }";
+  html += ".card-title { font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 10px; }";
+  html += ".card-value { font-size: 24px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }";
 
-  html += ".container { max-width: 1280px; margin: 0 auto; position: relative; z-index: 10; }";
+  html += ".toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 20px; }";
+  html += ".search-box { flex: 1; max-width: 400px; }";
+  html += ".search-box input { width: 100%; padding: 10px 15px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; box-sizing: border-box; }";
+  html += ".filters { display: flex; gap: 10px; }";
+  html += ".filter-btn { background: var(--surface); border: 1px solid var(--border); padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text-muted); }";
+  html += ".filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }";
 
-  html += ".header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px; flex-wrap: wrap; gap: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--glass-border); }";
-  html += ".header-left h1 { font-size: 48px; font-weight: 800; margin: 0; background: linear-gradient(to right, #60a5fa, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -1px; text-shadow: 0 10px 30px rgba(96, 165, 250, 0.3); }";
-  html += ".acronym { font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 3px; margin-top: 8px; opacity: 0.8; }";
+  html += ".section-title { font-size: 16px; font-weight: 700; margin: 30px 0 15px 0; display: flex; align-items: center; justify-content: space-between; }";
+  html += ".section-title span.badge { background: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 12px; font-size: 12px; }";
 
-  html += ".header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 15px; }";
-  html += ".clock-card { background: var(--glass-bg); backdrop-filter: blur(12px); border: 1px solid var(--glass-border); border-radius: 12px; padding: 12px 24px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); }";
-  html += ".clock-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px; display: block; }";
-  html += ".clock-time { font-family: 'JetBrains Mono', monospace; font-size: 28px; color: #facc15; font-weight: 700; text-shadow: 0 0 20px rgba(250, 204, 21, 0.4); }";
+  html += "table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }";
+  html += "th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); font-size: 14px; }";
+  html += "th { background: #f9fafb; font-weight: 600; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }";
+  html += "tr:last-child td { border-bottom: none; }";
+  html += ".mono { font-family: 'JetBrains Mono', monospace; }";
+  html += ".status-indicator { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; }";
+  html += ".status-in { background: #10b981; }";
+  html += ".status-out { background: #f59e0b; }";
+  html += ".alert-badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; }";
+  html += ".alert-red { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }";
+  html += ".alert-yellow { background: #fef3c7; color: #d97706; border: 1px solid #fcd34d; }";
+  html += ".alert-green { background: #d1fae5; color: #047857; border: 1px solid #6ee7b7; }";
 
-  html += ".export-btn { background: rgba(255, 255, 255, 0.05); color: var(--text-main); border: 1px solid rgba(255, 255, 255, 0.1); padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 13px; text-decoration: none; text-transform: uppercase; letter-spacing: 1px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; backdrop-filter: blur(5px); }";
-  html += ".export-btn:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.2); box-shadow: 0 0 20px rgba(255, 255, 255, 0.05); transform: translateY(-2px); }";
-
-  html += ".status-banner { padding: 20px 30px; border-radius: 16px; font-weight: 600; font-size: 16px; margin-bottom: 40px; display: flex; align-items: center; justify-content: space-between; letter-spacing: 1px; backdrop-filter: blur(16px); }";
-  html += ".status-indicator { display: flex; align-items: center; gap: 12px; }";
-  html += ".pulse-dot { width: 12px; height: 12px; border-radius: 50%; }";
-
-  html += ".status-secure { background: linear-gradient(90deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05)); border: 1px solid rgba(16, 185, 129, 0.2); color: #34d399; box-shadow: 0 0 40px rgba(16, 185, 129, 0.1); }";
-  html += ".status-secure .pulse-dot { background-color: #10b981; box-shadow: 0 0 15px #10b981; }";
-
-  html += ".status-alert { background: linear-gradient(90deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05)); border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; box-shadow: 0 0 50px rgba(239, 68, 68, 0.2); animation: borderPulse 1.5s infinite; }";
-  html += ".status-alert .pulse-dot { background-color: #ef4444; box-shadow: 0 0 20px #ef4444; animation: dotPulse 1s infinite; }";
-  html += "@keyframes borderPulse { 0% { border-color: rgba(239, 68, 68, 0.3); } 50% { border-color: rgba(239, 68, 68, 0.8); } 100% { border-color: rgba(239, 68, 68, 0.3); } }";
-  html += "@keyframes dotPulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.5); } 100% { opacity: 1; transform: scale(1); } }";
-
-  html += ".table-glass { background: var(--glass-bg); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: 20px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }";
-  html += "table { width: 100%; border-collapse: collapse; text-align: left; }";
-  html += "th, td { padding: 20px 24px; font-size: 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); white-space: nowrap; }";
-  html += "th { color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; font-size: 11px; background: rgba(0, 0, 0, 0.2); }";
-  html += "tbody tr { transition: background-color 0.2s; }";
-  html += "tbody tr:hover { background-color: rgba(255, 255, 255, 0.02); }";
-  html += "tbody tr:last-child td { border-bottom: none; }";
-
-  html += ".student-name { font-weight: 600; font-size: 16px; color: var(--text-main); display: flex; align-items: center; gap: 12px; }";
-  html += ".avatar-placeholder { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #8b5cf6); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; color: white; box-shadow: 0 0 10px rgba(139, 92, 246, 0.5); }";
-
-  html += ".stat-pill { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #e2e8f0; }";
-
-  html += ".loc-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-weight: 700; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }";
-  html += ".loc-inside { background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }";
-  html += ".loc-inside::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #34d399; box-shadow: 0 0 8px #34d399; }";
-  html += ".loc-outside { background: rgba(245, 158, 11, 0.1); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); }";
-  html += ".loc-outside::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #fbbf24; box-shadow: 0 0 8px #fbbf24; }";
-
-  html += ".timestamp-group { display: flex; flex-direction: column; gap: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-muted); }";
-  html += ".timestamp-group span b { color: var(--text-main); font-weight: normal; }";
-
-  html += ".duration { font-family: 'JetBrains Mono', monospace; color: #60a5fa; font-size: 13px; font-weight: 600; text-shadow: 0 0 10px rgba(96, 165, 250, 0.3); }";
-
-  html += ".bunk-count { font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 18px; color: #ef4444; text-shadow: 0 0 15px rgba(239, 68, 68, 0.4); text-align: center; }";
-  html += ".bunk-count.zero { color: var(--text-muted); text-shadow: none; font-weight: 400; }";
-
-  html += ".alert-badge { display: inline-flex; justify-content: center; width: 120px; padding: 8px 0; border-radius: 8px; font-weight: 700; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; backdrop-filter: blur(4px); }";
-  html += ".badge-G { background: rgba(16, 185, 129, 0.05); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); box-shadow: inset 0 0 10px rgba(16, 185, 129, 0.1); }";
-  html += ".badge-Y { background: rgba(245, 158, 11, 0.05); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); box-shadow: inset 0 0 10px rgba(245, 158, 11, 0.1); }";
-  html += ".badge-R { background: rgba(239, 68, 68, 0.05); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.5); box-shadow: inset 0 0 15px rgba(239, 68, 68, 0.2), 0 0 20px rgba(239, 68, 68, 0.2); }";
-  html += "</style></head><body>";
+  html += ".toggle-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; font-weight: 500; text-decoration: underline; }";
+  html += ".hidden { display: none !important; }";
+    html += ".status-secure { background: #d1fae5; color: #065f46; border: 1px solid #34d399; }";
+  html += ".status-alert { background: #fee2e2; color: #991b1b; border: 1px solid #f87171; animation: pulse 2s infinite; }";
+  html += "@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }";
+html += "</style></head><body>";
 
   html += "<div class='container'>";
-
   html += "<div class='header'>";
-  html += "  <div class='header-left'>";
-  html += "    <h1>SHIELD</h1>";
-  html += "    <div class='acronym'>Secure Hardware Interface for Entry Logging & Discipline</div>";
+  html += "  <div>";
+  html += "    <h1>SHIELD Admin</h1>";
+  html += "    <div class='subtitle'>Daily Attendance & Bunk Monitor</div>";
   html += "  </div>";
-  html += "  <div class='header-right'>";
-  html += "    <div class='clock-card'>";
-  html += "      <span class='clock-label'>System Sync Time</span>";
-  html += "      <span class='clock-time'>" + String(liveNowEpoch > 0 ? formatMilitaryTime(liveNowEpoch) : "SYNCING...") + "</span>";
-  html += "    </div>";
-  html += "    <a href='/export' class='export-btn'>Export PDF Report</a>";
+  html += "  <div class='controls'>";
+  html += "    <a href='/export' class='btn btn-primary'>Export Daily Report</a>";
   html += "  </div>";
   html += "</div>";
 
@@ -190,69 +167,177 @@ String getDashboardHTML() {
     bannerText = "WARNING // PORTAL DOOR OPEN";
   }
 
-  html += "<div class='status-banner " + bannerClass + "'>";
-  html += "  <div class='status-indicator'><div class='pulse-dot'></div> <span>" + bannerText + "</span></div>";
-  html += "  <div style='font-family: \"JetBrains Mono\", monospace; font-size: 12px; opacity: 0.6;'>STATUS:" + String(isAlert ? "0xDEAD" : "0x0000") + "</div>";
+  html += "<div style='margin-bottom: 20px; padding: 15px; border-radius: 8px; font-weight: bold; text-align: center;' class='" + bannerClass + "'>";
+  html += bannerText;
+  html += "</div>";
+  html += "<div class='summary-grid'>";
+  html += "  <div class='card'><div class='card-title'>System Time</div><div class='card-value'>" + String(liveNowEpoch > 0 ? formatMilitaryTime(liveNowEpoch) : "--:--") + "</div></div>";
+  html += "  <div class='card'><div class='card-title'>Total Students</div><div class='card-value' id='statTotal'>0</div></div>";
+  html += "  <div class='card'><div class='card-title'>Currently Inside</div><div class='card-value' id='statInside'>0</div></div>";
+  html += "  <div class='card'><div class='card-title'>Active Bunks</div><div class='card-value' style='color:#b91c1c;' id='statBunks'>0</div></div>";
   html += "</div>";
 
-  html += "<div class='table-glass'><table><thead><tr>";
-  html += "<th>Student Account</th><th>Entries</th><th>Exits</th><th>Zone Loc</th><th>Timestamps</th><th>Running Duration</th><th style='text-align: center;'>Total Bunks</th><th>Alert Status</th>";
-  html += "</tr></thead><tbody>";
+  html += "<div class='toolbar'>";
+  html += "  <div class='search-box'>";
+  html += "    <input type='text' id='searchInput' placeholder='Search by Name or Roll #...'>";
+  html += "  </div>";
+  html += "  <div class='filters' id='filterGroup'>";
+  html += "    <button class='filter-btn active' data-filter='all'>All</button>";
+  html += "    <button class='filter-btn' data-filter='inside'>Inside</button>";
+  html += "    <button class='filter-btn' data-filter='outside'>Outside</button>";
+  html += "  </div>";
+  html += "</div>";
 
-  for (auto &s : students) {
-    html += "<tr>";
+  // Active Cases Section
+  html += "<div class='section-title'>Active Cases / Leaderboard <span class='badge' id='activeBunksCount'>0</span></div>";
+  html += "<table><thead><tr>";
+  html += "<th>Roll #</th><th>Student Name</th><th>Location</th><th>Out Since</th><th>Current Dur.</th><th>Total Bunks</th><th>Alert Status</th>";
+  html += "</tr></thead><tbody id='activeTableBody'></tbody></table>";
 
-    // Auto-generate initials for the sleek avatar placeholder
-    String nameStr = String(s.name);
-    char initial1 = nameStr.length() > 0 ? nameStr.charAt(0) : '?';
-    char initial2 = ' ';
-    int spaceIdx = nameStr.indexOf(' ');
-    if (spaceIdx != -1 && spaceIdx + 1 < nameStr.length()) {
-        initial2 = nameStr.charAt(spaceIdx + 1);
-    }
-    String initials = String(initial1) + String(initial2);
-    initials.toUpperCase();
+  // All Students Section
+  html += "<div class='section-title'>All Students <button class='toggle-btn' id='toggleAllBtn'>Show</button></div>";
+  html += "<table id='allTable' class='hidden'><thead><tr>";
+  html += "<th>Roll #</th><th>Student Name</th><th>Location</th><th>IN</th><th>OUT</th><th>Bunks</th><th>Alert Status</th>";
+  html += "</tr></thead><tbody id='allTableBody'></tbody></table>";
 
-    html += "<td class='student-name'><div class='avatar-placeholder'>" + initials + "</div>" + nameStr + "</td>";
-    html += "<td><span class='stat-pill'>" + String(s.entryCount) + "</span></td>";
-    html += "<td><span class='stat-pill'>" + String(s.exitCount) + "</span></td>";
-    html += "<td><span class='loc-badge " + String(s.isInside ? "loc-inside" : "loc-outside") + "'>" + String(s.isInside ? "INSIDE" : "OUTSIDE") + "</span></td>";
-    html += "<td><div class='timestamp-group'><span>IN:  <b>" + formatMilitaryTime(s.lastEntryTime) + "</b></span><span>OUT: <b>" + formatMilitaryTime(s.lastExitTime) + "</b></span></div></td>";
+  html += "</div>";
 
-    if (s.stateChangeTimestamp == 0) {
-      html += "<td class='duration' style='color: var(--text-muted);'>--</td>";
-    } else {
-      unsigned long totalDeltaSecs = (currentMillis - s.stateChangeTimestamp) / 1000;
-      unsigned long runMinutes = totalDeltaSecs / 60;
-      unsigned long runSeconds = totalDeltaSecs % 60;
-      char durBuf[16];
-      sprintf(durBuf, "%02dm %02ds", runMinutes, runSeconds);
-      html += "<td class='duration'>" + String(durBuf) + "</td>";
-    }
+  html += "<script>";  html += "const now = new Date();";
+  html += "const localSecondsSinceMidnight = Math.floor((now.getHours() * 3600) + (now.getMinutes() * 60) + now.getSeconds());";
+  html += "if (" + String(liveNowEpoch == 0 ? "true" : "false") + ") {";
+  html += "  fetch('/sync?t=' + localSecondsSinceMidnight);";
+  html += "}";
 
-    String bunkClass = s.bunkCount == 0 ? "zero" : "";
-    html += "<td class='bunk-count " + bunkClass + "'>" + String(s.bunkCount) + "</td>";
+  html += "const currentMillis = " + String(currentMillis) + ";";
+  html += "const students = [";
+  for (int i = 0; i < sizeof(students)/sizeof(students[0]); i++) {
+      auto &s = students[i];
+      unsigned long runSecs = 0;
+      if (s.stateChangeTimestamp > 0 && !s.isInside) {
+          runSecs = (currentMillis - s.stateChangeTimestamp) / 1000;
+      }
 
-    String alertClass = "badge-G";
-    String alertText = "SECURE";
-    if (s.colorAlert == "YELLOW") { alertClass = "badge-Y"; alertText = "WARNING"; }
-    if (s.colorAlert == "RED") { alertClass = "badge-R"; alertText = "CRITICAL"; }
-
-    html += "<td><span class='alert-badge " + alertClass + "'>" + alertText + "</span></td>";
-    html += "</tr>";
+      html += "{";
+      html += "roll: " + String(s.rollNumber) + ",";
+      html += "name: '" + String(s.name) + "',";
+      html += "inside: " + String(s.isInside ? "true" : "false") + ",";
+      html += "inTime: '" + formatMilitaryTime(s.lastEntryTime) + "',";
+      html += "outTime: '" + formatMilitaryTime(s.lastExitTime) + "',";
+      html += "bunks: " + String(s.bunkCount) + ",";
+      html += "alert: '" + s.colorAlert + "',";
+      html += "runSecs: " + String(runSecs);
+      html += "}";
+      if (i < (sizeof(students)/sizeof(students[0])) - 1) html += ",";
   }
+  html += "];";
 
-  html += "</tbody></table></div>";
-  html += "</div>";
+  html += "function formatDur(secs) {";
+  html += "  if(secs === 0) return '--';";
+  html += "  let m = Math.floor(secs / 60);";
+  html += "  let s = secs % 60;";
+  html += "  return m + 'm ' + s + 's';";
+  html += "}";
 
-  html += "<script>";
-  html += "window.onload = function() {";
-  html += "  if (" + String(initialEpochSeconds) + " === 0) {";
-  html += "    let d = new Date();";
-  html += "    let localSecondsSinceMidnight = (d.getHours() * 3600) + (d.getMinutes() * 60) + d.getSeconds();";
-  html += "    fetch('/sync?t=' + localSecondsSinceMidnight);";
+  html += "let currentFilter = 'all';";
+  html += "let searchQuery = '';";
+
+  html += "function render() {";
+  html += "  let activeBunks = 0;";
+  html += "  let insideCount = 0;";
+
+  html += "  students.forEach(s => {";
+  html += "    if(s.inside) insideCount++;";
+  html += "    if(s.alert === 'RED' || s.alert === 'YELLOW') activeBunks++;";
+  html += "  });";
+
+  html += "  document.getElementById('statTotal').innerText = students.length;";
+  html += "  document.getElementById('statInside').innerText = insideCount;";
+  html += "  document.getElementById('statBunks').innerText = activeBunks;";
+  html += "  document.getElementById('activeBunksCount').innerText = activeBunks + ' Active';";
+
+  html += "  let filtered = students.filter(s => {";
+  html += "    let matchSearch = s.name.toLowerCase().includes(searchQuery) || String(s.roll).includes(searchQuery);";
+  html += "    let matchFilter = true;";
+  html += "    if(currentFilter === 'inside') matchFilter = s.inside;";
+  html += "    if(currentFilter === 'outside') matchFilter = !s.inside;";
+  html += "    return matchSearch && matchFilter;";
+  html += "  });";
+
+  html += "  let activeHTML = '';";
+  html += "  let allHTML = '';";
+
+  html += "  let activeStudents = filtered.filter(s => s.alert === 'RED' || s.alert === 'YELLOW');";
+  html += "  activeStudents.sort((a,b) => b.runSecs - a.runSecs);"; // Sort by current duration descending
+
+  html += "  if(activeStudents.length === 0) {";
+  html += "    activeHTML = '<tr><td colspan=\"7\" style='text-align:center; color:#6b7280; padding:20px;'>No active cases. All clear.</td></tr>';";
+  html += "  } else {";
+  html += "    activeStudents.forEach(s => {";
+  html += "      let alertClass = s.alert === 'RED' ? 'alert-red' : (s.alert === 'YELLOW' ? 'alert-yellow' : 'alert-green');";
+  html += "      activeHTML += `<tr>";
+  html += "        <td class='mono'>${String(s.roll).padStart(2, '0')}</td>";
+  html += "        <td style='font-weight:600;'>${s.name}</td>";
+  html += "        <td><span class='status-indicator status-out'></span>Outside</td>";
+  html += "        <td class='mono'>${s.outTime}</td>";
+  html += "        <td class='mono' style='color:#b91c1c; font-weight:600;'>${formatDur(s.runSecs)}</td>";
+  html += "        <td class='mono'>${s.bunks}</td>";
+  html += "        <td><span class='alert-badge ${alertClass}'>${s.alert}</span></td>";
+  html += "      </tr>`;";
+  html += "    });";
   html += "  }";
-  html += "};";
+
+  html += "  filtered.sort((a,b) => a.name.localeCompare(b.name)).forEach(s => {";
+  html += "    let locText = s.inside ? 'Inside' : 'Outside';";
+  html += "    let locStatus = s.inside ? 'status-in' : 'status-out';";
+  html += "    let alertClass = s.alert === 'RED' ? 'alert-red' : (s.alert === 'YELLOW' ? 'alert-yellow' : 'alert-green');";
+  html += "    allHTML += `<tr>";
+  html += "      <td class='mono'>${String(s.roll).padStart(2, '0')}</td>";
+  html += "      <td style='font-weight:600;'>${s.name}</td>";
+  html += "      <td><span class='status-indicator ${locStatus}'></span>${locText}</td>";
+  html += "      <td class='mono'>${s.inTime}</td>";
+  html += "      <td class='mono'>${s.outTime}</td>";
+  html += "      <td class='mono'>${s.bunks}</td>";
+  html += "      <td><span class='alert-badge ${alertClass}'>${s.alert}</span></td>";
+  html += "    </tr>`;";
+  html += "  });";
+
+  html += "  document.getElementById('activeTableBody').innerHTML = activeHTML;";
+  html += "  document.getElementById('allTableBody').innerHTML = allHTML || '<tr><td colspan=\"7\" style='text-align:center;'>No matching students found.</td></tr>';";
+  html += "}";
+
+  html += "document.getElementById('searchInput').addEventListener('input', (e) => {";
+  html += "  searchQuery = e.target.value.toLowerCase();";
+  html += "  render();";
+  html += "});";
+
+  html += "document.querySelectorAll('.filter-btn').forEach(btn => {";
+  html += "  btn.addEventListener('click', (e) => {";
+  html += "    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));";
+  html += "    e.target.classList.add('active');";
+  html += "    currentFilter = e.target.dataset.filter;";
+  html += "    render();";
+  html += "  });";
+  html += "});";
+
+  html += "document.getElementById('toggleAllBtn').addEventListener('click', (e) => {";
+  html += "  const table = document.getElementById('allTable');";
+  html += "  if(table.classList.contains('hidden')) {";
+  html += "    table.classList.remove('hidden');";
+  html += "    e.target.innerText = 'Hide';";
+  html += "  } else {";
+  html += "    table.classList.add('hidden');";
+  html += "    e.target.innerText = 'Show';";
+  html += "  }";
+  html += "});";
+
+  html += "render();";
+
+  html += "setInterval(() => {";
+  html += "  if(!searchQuery && currentFilter === 'all') {";
+  html += "    window.location.reload();";
+  html += "  }";
+  html += "}, 5000);";
+
   html += "</script></body></html>";
   return html;
 }
@@ -273,80 +358,112 @@ void handleExport() {
   String pdfHtml = "<!DOCTYPE html><html lang='en'><head>";
   pdfHtml += "<meta charset='UTF-8'>";
   pdfHtml += "<title>SHIELD Security Log Report</title>";
+  pdfHtml += "<link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap' rel='stylesheet'>";
   pdfHtml += "<style>";
   pdfHtml += ":root {";
-  pdfHtml += "  --text-main: #1f2937;";
-  pdfHtml += "  --text-muted: #6b7280;";
-  pdfHtml += "  --border: #e5e7eb;";
-  pdfHtml += "  --primary: #2563eb;";
-  pdfHtml += "  --bg-alt: #f9fafb;";
+  pdfHtml += "  --text-main: #000000;";
+  pdfHtml += "  --text-muted: #555555;";
+  pdfHtml += "  --border: #cccccc;";
+  pdfHtml += "  --bg-alt: #f4f4f4;";
   pdfHtml += "}";
   pdfHtml += "@page { margin: 20mm; size: A4 portrait; }";
-  pdfHtml += "body { font-family: system-ui, -apple-system, sans-serif; color: var(--text-main); margin: 0; padding: 0; background: #fff; line-height: 1.5; }";
+  pdfHtml += "body { font-family: 'Inter', sans-serif; color: var(--text-main); margin: 0; padding: 0; background: #fff; line-height: 1.5; }";
   pdfHtml += ".report-container { max-width: 800px; margin: 0 auto; padding: 20px; }";
-  pdfHtml += ".header { border-bottom: 2px solid var(--primary); padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }";
-  pdfHtml += ".header-left h1 { margin: 0 0 5px 0; color: var(--text-main); font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }";
-  pdfHtml += ".header-left .meta { font-size: 13px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 1px; }";
+  pdfHtml += ".header { border-bottom: 2px solid var(--text-main); padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }";
+  pdfHtml += ".header-left h1 { margin: 0 0 5px 0; font-size: 24px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }";
+  pdfHtml += ".header-left .meta { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }";
   pdfHtml += ".header-right { text-align: right; }";
-  pdfHtml += ".report-time { font-family: monospace; font-size: 14px; font-weight: 600; color: var(--primary); background: #eff6ff; padding: 6px 12px; border-radius: 4px; border: 1px solid #bfdbfe; }";
-  pdfHtml += "table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }";
-  pdfHtml += "th, td { padding: 12px 16px; text-align: left; font-size: 13px; border-bottom: 1px solid var(--border); }";
-  pdfHtml += "th { background-color: var(--bg-alt); font-weight: 600; color: var(--text-muted); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }";
-  pdfHtml += "tbody tr:last-child td { border-bottom: none; }";
-  pdfHtml += "tbody tr:nth-child(even) { background-color: var(--bg-alt); }";
-  pdfHtml += ".student-name { font-weight: 600; font-size: 14px; }";
-  pdfHtml += ".bunk { color: #dc2626; font-weight: 700; font-family: monospace; font-size: 15px; }";
-  pdfHtml += ".loc { font-weight: 700; font-size: 12px; }";
-  pdfHtml += ".timestamp { font-family: monospace; color: var(--text-muted); }";
-  pdfHtml += ".status-G { color: #059669; font-weight: 700; }";
-  pdfHtml += ".status-Y { color: #d97706; font-weight: 700; }";
-  pdfHtml += ".status-R { color: #dc2626; font-weight: 700; }";
-  pdfHtml += ".footer { margin-top: 40px; text-align: center; font-size: 11px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 20px; }";
+  pdfHtml += ".report-time { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; border: 1px solid var(--border); padding: 5px 10px; }";
+  pdfHtml += "table { width: 100%; border-collapse: collapse; margin-top: 10px; }";
+  pdfHtml += "th, td { padding: 10px 12px; text-align: left; font-size: 12px; border-bottom: 1px solid var(--border); }";
+  pdfHtml += "th { background-color: var(--bg-alt); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; }";
+  pdfHtml += ".student-name { font-weight: 600; font-size: 13px; }";
+  pdfHtml += ".rank-roll { font-family: 'JetBrains Mono'; font-size: 11px; color: var(--text-muted); }";
+  pdfHtml += ".data-mono { font-family: 'JetBrains Mono'; }";
+  pdfHtml += ".bunk { font-weight: 700; font-size: 13px; }";
+  pdfHtml += ".footer { margin-top: 40px; text-align: center; font-size: 10px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 15px; }";
   pdfHtml += "</style></head><body>";
 
   pdfHtml += "<div class='report-container'>";
   pdfHtml += "<div class='header'>";
   pdfHtml += "  <div class='header-left'>";
   pdfHtml += "    <h1>SHIELD LOG REPORT</h1>";
-  pdfHtml += "    <div class='meta'>Secure Hardware Interface for Entry Logging & Discipline</div>";
+  pdfHtml += "    <div class='meta'>Secure Hardware Interface // Daily Bunk Summary</div>";
   pdfHtml += "  </div>";
   pdfHtml += "  <div class='header-right'>";
   pdfHtml += "    <div class='report-time'>GENERATED: " + String(liveNowEpoch > 0 ? formatMilitaryTime(liveNowEpoch) : "--") + "</div>";
   pdfHtml += "  </div>";
   pdfHtml += "</div>";
 
-  pdfHtml += "<table><thead><tr>";
-  pdfHtml += "<th>Student Name</th><th>Entries</th><th>Exits</th><th>Current Loc</th><th>Last Entry</th><th>Last Exit</th><th>Total Bunks</th><th>Alert Status</th>";
+  pdfHtml += "<table id='reportTable'><thead><tr>";
+  pdfHtml += "<th>Rank</th><th>Roll #</th><th>Student Name</th><th>Entries</th><th>Exits</th><th>Total Bunks</th><th>Total Bunk Dur.</th><th>Last Bunk Details</th>";
   pdfHtml += "</tr></thead><tbody>";
-
-  for (auto &s : students) {
-    pdfHtml += "<tr>";
-    pdfHtml += "<td class='student-name'>" + String(s.name) + "</td>";
-    pdfHtml += "<td>" + String(s.entryCount) + "</td>";
-    pdfHtml += "<td>" + String(s.exitCount) + "</td>";
-    pdfHtml += "<td class='loc' style='color: " + String(s.isInside ? "#059669" : "#d97706") + ";'>" + String(s.isInside ? "INSIDE" : "OUTSIDE") + "</td>";
-    pdfHtml += "<td class='timestamp'>" + formatMilitaryTime(s.lastEntryTime) + "</td>";
-    pdfHtml += "<td class='timestamp'>" + formatMilitaryTime(s.lastExitTime) + "</td>";
-    pdfHtml += "<td class='bunk'>" + String(s.bunkCount) + "</td>";
-
-    String sClass = "status-G";
-    if (s.colorAlert == "YELLOW") sClass = "status-Y";
-    if (s.colorAlert == "RED") sClass = "status-R";
-
-    pdfHtml += "<td class='" + sClass + "'>" + s.colorAlert + "</td>";
-    pdfHtml += "</tr>";
-  }
 
   pdfHtml += "</tbody></table>";
   pdfHtml += "<div class='footer'>Report auto-generated by SHIELD System v14.0 &bull; Official Security Record</div>";
   pdfHtml += "</div>";
 
-  pdfHtml += "<script>window.onload = function() { window.print(); }</script>";
+  // Inject students for sorting
+  pdfHtml += "<script>";
+  pdfHtml += "const students = [";
+  for (int i = 0; i < sizeof(students)/sizeof(students[0]); i++) {
+      auto &s = students[i];
+      pdfHtml += "{";
+      pdfHtml += "roll: " + String(s.rollNumber) + ",";
+      pdfHtml += "name: '" + String(s.name) + "',";
+      pdfHtml += "entries: " + String(s.entryCount) + ",";
+      pdfHtml += "exits: " + String(s.exitCount) + ",";
+      pdfHtml += "bunks: " + String(s.bunkCount) + ",";
+      pdfHtml += "totalDur: " + String(s.totalBunkDuration) + ",";
+      pdfHtml += "lastDur: " + String(s.lastBunkDuration) + ",";
+      pdfHtml += "lastExit: '" + formatMilitaryTime(s.lastExitTime) + "',";
+      pdfHtml += "lastEntry: '" + formatMilitaryTime(s.lastEntryTime) + "',";
+      pdfHtml += "isInside: " + String(s.isInside ? "true" : "false") + ",";
+      pdfHtml += "bunkStart: '" + formatMilitaryTime(s.currentBunkStart > 0 ? s.currentBunkStart : 0) + "'";
+      pdfHtml += "}";
+      if (i < (sizeof(students)/sizeof(students[0])) - 1) pdfHtml += ",";
+  }
+  pdfHtml += "];";
+
+  pdfHtml += "function formatDur(secs) {\n";
+  pdfHtml += "    if(secs === 0) return '--';\n";
+  pdfHtml += "    let m = Math.floor(secs / 60);\n";
+  pdfHtml += "    let s = secs % 60;\n";
+  pdfHtml += "    return m + 'm ' + s + 's';\n";
+  pdfHtml += "}\n";
+
+  pdfHtml += "window.onload = function() {\n";
+  pdfHtml += "    students.sort((a,b) => {\n";
+  pdfHtml += "       if(b.totalDur !== a.totalDur) return b.totalDur - a.totalDur;\n";
+  pdfHtml += "       return b.bunks - a.bunks;\n";
+  pdfHtml += "    });\n";
+
+  pdfHtml += "    let tbody = document.querySelector('#reportTable tbody');\n";
+  pdfHtml += "    let html = '';\n";
+  pdfHtml += "    let rank = 1;\n";
+  pdfHtml += "    for(let s of students) {\n";
+  pdfHtml += "       let rStr = s.bunks > 0 ? '#' + rank : '--';\n";
+  pdfHtml += "       html += `<tr>";
+  pdfHtml += "          <td class='data-mono'><b>${rStr}</b></td>";
+  pdfHtml += "          <td class='rank-roll'>${String(s.roll).padStart(2, '0')}</td>";
+  pdfHtml += "          <td class='student-name'>${s.name}</td>";
+  pdfHtml += "          <td class='data-mono'>${s.entries}</td>";
+  pdfHtml += "          <td class='data-mono'>${s.exits}</td>";
+  pdfHtml += "          <td class='data-mono bunk'>${s.bunks}</td>";
+  pdfHtml += "          <td class='data-mono'>${formatDur(s.totalDur)}</td>";
+  pdfHtml += "          <td class='data-mono'>${formatDur(s.lastDur)}</td>";
+  pdfHtml += "       </tr>`;\n";
+  pdfHtml += "       if(s.bunks > 0) rank++;\n";
+  pdfHtml += "    }\n";
+  pdfHtml += "    tbody.innerHTML = html;\n";
+  pdfHtml += "    window.print();\n";
+  pdfHtml += "}\n";
+
+  pdfHtml += "</script>";
   pdfHtml += "</body></html>";
 
   server.send(200, "text/html", pdfHtml);
 }
-
 void setup() {
   Serial.begin(115200);
   delay(100);
@@ -382,6 +499,13 @@ void loop() {
           if (!s.bunkLoggedForCurrentCycle) {
             s.bunkCount++;
             s.bunkLoggedForCurrentCycle = true;
+            s.currentBunkStart = currentTime;
+          }
+          if (s.currentBunkStart > 0 && (currentTime - s.currentBunkStart >= 1000)) {
+            unsigned long dur = (currentTime - s.currentBunkStart) / 1000;
+            s.totalBunkDuration += dur;
+            s.lastBunkDuration += dur;
+            s.currentBunkStart += dur * 1000; // Advance by the exact seconds added
           }
         } else if (runningOutsideTime >= 10) {
           s.colorAlert = "YELLOW";
@@ -462,9 +586,12 @@ void loop() {
         activeStudent->entryCount++;
         activeStudent->lastEntryTime = getLiveEpochTime();
         activeStudent->bunkLoggedForCurrentCycle = false;
+        activeStudent->currentBunkStart = 0;
       } else {
         activeStudent->exitCount++;
         activeStudent->lastExitTime = getLiveEpochTime();
+        activeStudent->lastBunkDuration = 0; // Reset when they go outside, ready for a new bunk
+
       }
     }
     windowActive = false;
