@@ -95,8 +95,18 @@ String getDashboardHTML() {
   html += "  --radius: 8px;";
   html += "  --shadow: 0 1px 3px rgba(0,0,0,0.1);";
   html += "}";
-  html += "body { margin: 0; background: var(--bg); color: var(--text-main); font-family: 'Inter', sans-serif; padding: 20px; }";
-  html += ".container { max-width: 1200px; margin: 0 auto; }";
+  html += "body { margin: 0; color: var(--text-main); font-family: 'Inter', sans-serif; padding: 20px; ";
+  html += "  background: linear-gradient(115deg, transparent 20%, rgba(255,105,180,0.15) 45%, rgba(135,206,235,0.15) 55%, transparent 80%), conic-gradient(from 45deg, rgba(230,230,250,0.2), rgba(240,255,255,0.2), rgba(255,228,225,0.2), rgba(230,230,250,0.2));";
+  html += "  background-color: var(--bg);";
+  html += "  background-size: 200% 200%;";
+  html += "  animation: iridescence 10s ease infinite;";
+  html += "}";
+  html += "@keyframes iridescence {";
+  html += "  0% { background-position: 0% 50%; }";
+  html += "  50% { background-position: 100% 50%; }";
+  html += "  100% { background-position: 0% 50%; }";
+  html += "}";
+  html += ".container { max-width: 1200px; margin: 0 auto; background: rgba(255, 255, 255, 0.85); padding: 30px; border-radius: 12px; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1); backdrop-filter: blur(5px); }";
 
   html += ".header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid var(--primary); padding-bottom: 20px; }";
   html += ".header h1 { margin: 0; font-size: 24px; font-weight: 700; text-transform: uppercase; letter-spacing: -0.5px; }";
