@@ -7,12 +7,25 @@
 :root {
   --bg: #f8f9fa;
   --surface: #ffffff;
+  --surface-alt: #f9fafb;
   --text-main: #111827;
   --text-muted: #6b7280;
   --border: #e5e7eb;
   --primary: #000000;
   --radius: 8px;
   --shadow: 0 1px 3px rgba(0,0,0,0.1);
+  --container-bg: rgba(255, 255, 255, 0.85);
+}
+[data-theme='dark'] {
+  --bg: #111827;
+  --surface: #1f2937;
+  --surface-alt: #374151;
+  --text-main: #f9fafb;
+  --text-muted: #9ca3af;
+  --border: #374151;
+  --primary: #ffffff;
+  --shadow: 0 1px 3px rgba(0,0,0,0.5);
+  --container-bg: rgba(31, 41, 55, 0.85);
 }
 body { margin: 0; color: var(--text-main); font-family: 'Inter', sans-serif; padding: 20px;
   background: linear-gradient(115deg, transparent 20%, rgba(255,105,180,0.15) 45%, rgba(135,206,235,0.15) 55%, transparent 80%), conic-gradient(from 45deg, rgba(230,230,250,0.2), rgba(240,255,255,0.2), rgba(255,228,225,0.2), rgba(230,230,250,0.2));
@@ -25,22 +38,22 @@ body { margin: 0; color: var(--text-main); font-family: 'Inter', sans-serif; pad
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
-.container { max-width: 1200px; margin: 0 auto; background: rgba(255, 255, 255, 0.85); padding: 30px; border-radius: 12px; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1); backdrop-filter: blur(5px); }
+.container { max-width: 1200px; margin: 0 auto; background: var(--container-bg); padding: 30px; border-radius: 12px; box-shadow: 0 4px 30px var(--shadow); backdrop-filter: blur(5px); }
 .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid var(--primary); padding-bottom: 20px; }
 .header h1 { margin: 0; font-size: 24px; font-weight: 700; text-transform: uppercase; letter-spacing: -0.5px; }
 .header .subtitle { color: var(--text-muted); font-size: 13px; font-weight: 500; }
 .controls { display: flex; gap: 15px; }
 .btn { background: var(--surface); color: var(--primary); border: 1px solid var(--border); padding: 8px 16px; border-radius: var(--radius); font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; transition: 0.2s; box-shadow: var(--shadow); }
 .btn:hover { background: var(--bg); border-color: var(--text-muted); }
-.btn-primary { background: var(--primary); color: white; border-color: var(--primary); }
-.btn-primary:hover { background: #333; }
+.btn-primary { background: var(--primary); color: var(--bg); border-color: var(--primary); }
+.btn-primary:hover { opacity: 0.8; }
 .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
 .card-title { font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 10px; }
 .card-value { font-size: 24px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
 .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 20px; }
 .search-box { flex: 1; max-width: 400px; }
-.search-box input { width: 100%; padding: 10px 15px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; box-sizing: border-box; }
+.search-box input { width: 100%; padding: 10px 15px; border: 1px solid var(--border); background: var(--surface); color: var(--text-main); border-radius: var(--radius); font-size: 14px; box-sizing: border-box; }
 .filters { display: flex; gap: 10px; }
 .filter-btn { background: var(--surface); border: 1px solid var(--border); padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text-muted); }
 .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
@@ -48,7 +61,7 @@ body { margin: 0; color: var(--text-main); font-family: 'Inter', sans-serif; pad
 .section-title span.badge { background: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
 table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
 th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); font-size: 14px; }
-th { background: #f9fafb; font-weight: 600; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+th { background: var(--surface-alt); font-weight: 600; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
 tr:last-child td { border-bottom: none; }
 .mono { font-family: 'JetBrains Mono', monospace; }
 .status-indicator { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; }
@@ -71,6 +84,7 @@ tr:last-child td { border-bottom: none; }
     <div class='subtitle'>Daily Attendance & Bunk Monitor</div>
   </div>
   <div class='controls'>
+    <button id='themeToggleBtn' class='btn'>Toggle Theme</button>
     <a href='/export' class='btn btn-primary'>Export Daily Report</a>
   </div>
 </div>
@@ -101,7 +115,15 @@ tr:last-child td { border-bottom: none; }
 <th>Roll #</th><th>Student Name</th><th>Location</th><th>IN</th><th>OUT</th><th>Bunks</th><th>Alert Status</th>
 </tr></thead><tbody id='allTableBody'></tbody></table>
 </div>
-<script>  const now = new Date();
+<script>
+const themeToggleBtn = document.getElementById('themeToggleBtn');
+const currentTheme = localStorage.getItem('theme') || 'light';
+if (currentTheme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+themeToggleBtn.addEventListener('click', () => {
+  let theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('theme', theme);
+});  const now = new Date();
 const localSecondsSinceMidnight = Math.floor((now.getHours() * 3600) + (now.getMinutes() * 60) + now.getSeconds());
 if (false) {
   // fetch disabled in mock
