@@ -21,33 +21,43 @@ WebServer server(80);
 
 struct Student {
   byte uid[4];
-  int rollNumber;
   const char* name;
   int entryCount;
   int exitCount;
-  bool isInside;
+  bool isInside;            
   unsigned long stateChangeTimestamp;
-  unsigned long lastEntryTime;
-  unsigned long lastExitTime;
-  String colorAlert;
-  int bunkCount;
-  bool bunkLoggedForCurrentCycle;
-  unsigned long totalBunkDuration;
-  unsigned long currentBunkStart;
-  unsigned long lastBunkDuration;
+  unsigned long lastEntryTime; 
+  unsigned long lastExitTime;  
+  String colorAlert; 
+  int bunkCount;           
+  bool bunkLoggedForCurrentCycle; 
+  unsigned long firstInTime;
+  unsigned long totalInsideTimeSecs;
+  unsigned long lastInsideTickTimestamp;
 };
 
 Student students[] = {
-  {{0x9E, 0x60, 0x02, 0x02}, 1, "Yuvraj Singh", 0, 0, false, 0, 0, 0, "GREEN", 0, false, 0, 0, 0},
-  {{0x74, 0x8A, 0xBB, 0x02}, 2, "Yash Pratap",  0, 0, false, 0, 0, 0, "GREEN", 0, false, 0, 0, 0}
+  {{0x9E, 0x60, 0x02, 0x04}, "Yuvraj Singh", 0, 0, false, 0, 0, 0, "GREEN", 0, false, 0, 0, 0},
+  {{0x74, 0x8A, 0xBB, 0x02}, "Yash Pratap",  0, 0, false, 0, 0, 0, "GREEN", 0, false, 0, 0, 0}
 };
+
+struct BunkRecord {
+  String name;
+  unsigned long outTime;
+  unsigned long inTime;
+  String durationStr;
+  int absoluteBunkTally;
+};
+
+BunkRecord bunkLogs[100]; 
+int totalLoggedBunks = 0;
 
 unsigned long windowStartTime = 0;
 bool windowActive = false;
-const unsigned long FUSION_WINDOW_MS = 1000;
+const unsigned long FUSION_WINDOW_MS = 1000; 
 
 int RFID_Scan_Count = 0;
-int IR_Trip_Count = 0;
+int IR_Trip_Count = 0; 
 Student* activeStudent = nullptr;
 
 bool lastIRState = false;
@@ -55,10 +65,9 @@ bool lastHallState = false;
 unsigned long lastNetworkCheck = 0;
 
 bool physicalBreachAlert = false;
-bool tailgatingAlert = false;
-unsigned long alertTriggerTime = 0; // Tracks exact timestamp of security breaches
+bool tailgatingAlert = false; 
 
-unsigned long initialEpochSeconds = 0;
+unsigned long initialEpochSeconds = 0; 
 unsigned long epochSyncSystemTicks = 0;
 
 String formatMilitaryTime(unsigned long epochTime) {
@@ -75,81 +84,47 @@ unsigned long getLiveEpochTime() {
   return initialEpochSeconds + ((millis() - epochSyncSystemTicks) / 1000);
 }
 
+String calculateIntervalStr(unsigned long start, unsigned long end) {
+  if (start == 0 || end == 0 || end < start) return "Calculating...";
+  unsigned long diff = end - start;
+  return String(diff / 60) + "m " + String(diff % 60) + "s";
+}
+
 String getDashboardHTML() {
-  unsigned long liveNowEpoch = getLiveEpochTime();
-  unsigned long currentMillis = millis();
-
+  int totalCount = sizeof(students) / sizeof(students[0]);
+  
   String html = "<!DOCTYPE html><html lang='en'><head>";
-  html += "<meta charset='UTF-8'>";
-  html += "<meta name='viewport' content='width=device-width, initial-scale=1.0'>";
-  html += "<title>SHIELD Admin</title>";
-  html += "<link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap' rel='stylesheet'>";
+  html += "<meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>";
+  html += "<title>SHIELD Control Center</title>";
+  html += "<link href='https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700;900&family=JetBrains+Mono:wght=400;600&display=swap' rel='stylesheet'>";
   html += "<style>";
-  html += ":root {";
-  html += "  --bg: #f8f9fa;";
-  html += "  --surface: #ffffff;";
-  html += "  --surface-alt: #f9fafb;";
-  html += "  --text-main: #111827;";
-  html += "  --text-muted: #6b7280;";
-  html += "  --border: #e5e7eb;";
-  html += "  --primary: #000000;";
-  html += "  --radius: 8px;";
-  html += "  --shadow: 0 1px 3px rgba(0,0,0,0.1);";
-  html += "  --container-bg: rgba(255, 255, 255, 0.85);";
-  html += "}";
-  html += "[data-theme='dark'] {";
-  html += "  --bg: #111827;";
-  html += "  --surface: #1f2937;";
-  html += "  --surface-alt: #374151;";
-  html += "  --text-main: #f9fafb;";
-  html += "  --text-muted: #9ca3af;";
-  html += "  --border: #374151;";
-  html += "  --primary: #ffffff;";
-  html += "  --shadow: 0 1px 3px rgba(0,0,0,0.5);";
-  html += "  --container-bg: rgba(31, 41, 55, 0.85);";
-  html += "}";
-  html += "body { margin: 0; color: var(--text-main); font-family: 'Inter', sans-serif; padding: 20px; transition: background-color 0.5s ease, color 0.5s ease; ";
-  html += "  background-image: url('https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=2000&auto=format&fit=crop');";
-  html += "  background-size: cover;";
-  html += "  background-position: center;";
-  html += "  background-attachment: fixed;";
-  html += "  background-color: var(--bg);";
-  html += "}";
-  html += ".container { max-width: 1200px; margin: 0 auto; background: var(--container-bg); padding: 30px; border-radius: 12px; box-shadow: 0 4px 30px var(--shadow); backdrop-filter: blur(5px); transition: background-color 0.5s ease, box-shadow 0.5s ease; animation: slideUpFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; transform: translateY(20px); }";
-  html += "@keyframes slideUpFadeIn { to { opacity: 1; transform: translateY(0); } }";
-
-  html += ".header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid var(--primary); padding-bottom: 20px; }";
-  html += ".header h1 { margin: 0; font-size: 24px; font-weight: 700; text-transform: uppercase; letter-spacing: -0.5px; }";
-  html += ".header .subtitle { color: var(--text-muted); font-size: 13px; font-weight: 500; }";
-  html += ".controls { display: flex; gap: 15px; }";
-  html += ".btn { background: var(--surface); color: var(--primary); border: 1px solid var(--border); padding: 8px 16px; border-radius: var(--radius); font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; transition: 0.2s; box-shadow: var(--shadow); }";
-  html += ".btn:hover { background: var(--bg); border-color: var(--text-muted); }";
+  html += ":root { --bg: #f8f9fa; --surface: #ffffff; --surface-alt: #f9fafb; --text-main: #111827; --text-muted: #6b7280; --border: #e5e7eb; --primary: #000000; --radius: 8px; --shadow: 0 1px 3px rgba(0,0,0,0.1); --container-bg: rgba(255, 255, 255, 0.85); }";
+  html += "[data-theme='dark'] { --bg: #111827; --surface: #1f2937; --surface-alt: #374151; --text-main: #f9fafb; --text-muted: #9ca3af; --border: #374151; --primary: #ffffff; --shadow: 0 1px 3px rgba(0,0,0,0.5); --container-bg: rgba(31, 41, 55, 0.85); }";
+  html += "body { margin: 0; color: var(--text-main); font-family: 'Inter', sans-serif; padding: 20px; transition: background-color 0.3s; background-image: url('https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=2000&auto=format&fit=crop'); background-size: cover; background-position: center; background-attachment: fixed; background-color: var(--bg); }";
+  html += ".container { max-width: 1200px; margin: 0 auto; background: var(--container-bg); padding: 30px; border-radius: 12px; box-shadow: 0 4px 30px var(--shadow); backdrop-filter: blur(5px); }";
+  html += ".header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid var(--primary); padding-bottom: 25px; position: relative; }";
+  html += ".header h1 { margin: 0; font-size: 42px; font-weight: 900; text-transform: uppercase; letter-spacing: 4px; line-height: 1.1; }";
+  html += ".header .full-form { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); margin-top: 6px; }";
+  html += ".header .subtitle { color: var(--text-muted); font-size: 13px; font-weight: 500; margin-top: 4px; }";
+  html += ".header .controls { display: flex; gap: 10px; position: absolute; right: 0; top: 10px; }";
+  html += ".btn { background: var(--surface); color: var(--primary); border: 1px solid var(--border); padding: 8px 16px; border-radius: var(--radius); font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s; box-shadow: var(--shadow); }";
   html += ".btn-primary { background: var(--primary); color: var(--bg); border-color: var(--primary); }";
-  html += ".btn-primary:hover { opacity: 0.8; }";
-
-  html += ".summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }";
-  html += ".card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); transition: transform 0.3s ease, box-shadow 0.3s ease; }";
-  html += ".card:hover { transform: translateY(-5px); box-shadow: 0 8px 15px rgba(0,0,0,0.1); }";
+  html += ".layout-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-top: 20px; }";
+  html += ".summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; margin-bottom: 30px; }";
+  html += ".card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }";
   html += ".card-title { font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 10px; }";
   html += ".card-value { font-size: 24px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }";
-
   html += ".toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 20px; }";
   html += ".search-box { flex: 1; max-width: 400px; }";
-  html += ".search-box input { width: 100%; padding: 10px 15px; border: 1px solid var(--border); background: var(--surface); color: var(--text-main); border-radius: var(--radius); font-size: 14px; box-sizing: border-box; transition: box-shadow 0.3s ease, border-color 0.3s ease; }";
-  html += ".search-box input:focus { outline: none; border-color: var(--text-muted); box-shadow: 0 0 0 3px rgba(107,114,128,0.2); }";
+  html += ".search-box input { width: 100%; padding: 10px 15px; border: 1px solid var(--border); background: var(--surface); color: var(--text-main); border-radius: var(--radius); font-size: 14px; box-sizing: border-box; }";
   html += ".filters { display: flex; gap: 10px; }";
-  html += ".filter-btn { background: var(--surface); border: 1px solid var(--border); padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text-muted); transition: all 0.3s ease; }";
-  html += ".filter-btn:hover:not(.active) { background: var(--border); transform: scale(1.05); }";
-  html += ".filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }";
-
-  html += ".section-title { font-size: 16px; font-weight: 700; margin: 30px 0 15px 0; display: flex; align-items: center; justify-content: space-between; }";
+  html += ".filter-btn { background: var(--surface); border: 1px solid var(--border); padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text-muted); }";
+  html += ".filter-btn.active { background: var(--primary); color: var(--bg); border-color: var(--primary); }";
+  html += ".section-title { font-size: 16px; font-weight: 700; margin: 25px 0 15px 0; display: flex; align-items: center; justify-content: space-between; }";
   html += ".section-title span.badge { background: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 12px; font-size: 12px; }";
-
   html += "table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }";
-  html += "th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); font-size: 14px; transition: background-color 0.2s ease; }";
-  html += "tbody tr:hover td { background-color: rgba(128,128,128,0.05); }";
-  html += "th { background: var(--surface-alt); font-weight: 600; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }";
-  html += "tr:last-child td { border-bottom: none; }";
+  html += "th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); font-size: 14px; }";
+  html += "th { background: var(--surface-alt); font-weight: 600; color: var(--text-muted); font-size: 12px; text-transform: uppercase; }";
   html += ".mono { font-family: 'JetBrains Mono', monospace; }";
   html += ".status-indicator { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; }";
   html += ".status-in { background: #10b981; }";
@@ -158,523 +133,318 @@ String getDashboardHTML() {
   html += ".alert-red { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }";
   html += ".alert-yellow { background: #fef3c7; color: #d97706; border: 1px solid #fcd34d; }";
   html += ".alert-green { background: #d1fae5; color: #047857; border: 1px solid #6ee7b7; }";
-
-  html += ".toggle-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; font-weight: 500; text-decoration: underline; }";
+  html += ".toggle-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; text-decoration: underline; }";
   html += ".hidden { display: none !important; }";
-    html += ".status-secure { background: #d1fae5; color: #065f46; border: 1px solid #34d399; }";
+  html += ".banner-box { margin-bottom: 20px; padding: 15px; border-radius: 8px; font-weight: bold; text-align: center; }";
+  html += ".status-secure { background: #d1fae5; color: #065f46; border: 1px solid #34d399; }";
   html += ".status-alert { background: #fee2e2; color: #991b1b; border: 1px solid #f87171; animation: pulse 2s infinite; }";
+  html += ".cctv-card { background: #0f172a; border: 1px solid #334155; border-radius: var(--radius); padding: 15px; color: #38bdf8; font-family: 'JetBrains Mono', monospace; box-shadow: var(--shadow); }";
+  html += ".cctv-title { color: #94a3b8; font-size: 11px; text-transform: uppercase; font-weight: bold; border-bottom: 1px solid #334155; padding-bottom: 6px; margin-bottom: 10px; }";
+  html += ".cctv-stream { background: #020617; padding: 12px; border-radius: 4px; font-size: 12px; line-height: 1.5; height: 320px; overflow-y: auto; border-left: 3px solid #38bdf8; }";
+  html += ".cctv-stream.breach { border-left-color: #ef4444; }";
+  html += ".log-line { border-bottom: 1px solid #1e293b; padding: 4px 0; font-size: 11px; }";
+  
+  html += "#bunkPrintSection, #attendancePrintSection { display: none; }";
+  html += "@media print {";
+  html += "  body { background: none !important; padding: 0; color: #000000; }";
+  html += "  .container { display: none !important; }"; 
+  html += "  .print-hdr { text-align: center; border-bottom: 3px solid #000; padding-bottom: 15px; margin-bottom: 25px; }";
+  html += "  .print-hdr h1 { margin: 0; font-size: 36px; font-weight: 900; text-transform: uppercase; letter-spacing: 4px; }";
+  html += "  .print-hdr .print-full-form { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #555; margin-top: 5px; }";
+  html += "  .print-hdr .print-title { font-size: 16px; font-weight: 700; text-transform: uppercase; margin-top: 15px; letter-spacing: 0.5px; }";
+  html += "  .print-table { width: 100%; border-collapse: collapse; margin-top: 15px; }";
+  html += "  .print-table th { background: #f2f2f2 !important; color: #000 !important; font-weight: bold; border: 1px solid #000; padding: 8px; font-size: 11px; text-transform: uppercase; }";
+  html += "  .print-table td { border: 1px solid #000; padding: 8px; font-size: 11px; text-align: left; }";
+  html += "  .print-mono { font-family: 'JetBrains Mono', monospace; font-weight: 600; }";
+  html += "}";
   html += "@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }";
-html += "</style></head><body>";
-
+  html += "</style></head><body>";
+  
   html += "<div class='container'>";
-  html += "<div class='header'>";
-  html += "  <div>";
-  html += "    <h1>SHIELD Admin</h1>";
+  html += "  <div class='header'>";
+  html += "    <h1>SHIELD</h1>";
+  html += "    <div class='full-form'>Strategic Human Incident Evaluation & Logistics Database</div>";
   html += "    <div class='subtitle'>Daily Attendance & Bunk Monitor</div>";
+  html += "    <div class='controls'><button id='themeToggleBtn' class='btn'>Toggle Theme</button><button onclick='printAttendanceReport()' class='btn btn-primary' style='background:#000; color:#fff;'>Print Attendance PDF</button><button onclick='printBunkerReport()' class='btn btn-primary'>Print Bunkers PDF</button></div>";
   html += "  </div>";
-  html += "  <div class='controls'>";
-  html += "    <button id='themeToggleBtn' class='btn'>Toggle Theme</button>";
-  html += "    <a href='/export' class='btn btn-primary'>Export Daily Report</a>";
+  html += "  <div id='statusBanner' class='banner-box status-secure'>SYSTEM INITIALIZING...</div>";
+  html += "  <div class='summary-grid'>";
+  html += "    <div class='card'><div class='card-title'>System Time</div><div class='card-value' id='sysTimeDisplay'>--:--</div></div>";
+  html += "    <div class='card'><div class='card-title'>Total Students</div><div class='card-value' id='statTotal'>0</div></div>";
+  html += "    <div class='card'><div class='card-title'>Currently Inside</div><div class='card-value' id='statInside'>0</div></div>";
+  html += "    <div class='card'><div class='card-title'>Active Bunks</div><div class='card-value' style='color:#b91c1c;' id='statBunks'>0</div></div>";
   html += "  </div>";
-  html += "</div>";
-
-  bool isDoorOpen = digitalRead(HALL_PIN);
-  bool isAlert = isDoorOpen || physicalBreachAlert || tailgatingAlert;
-
-  String bannerClass = isAlert ? "status-alert" : "status-secure";
-  String bannerText = "PORTAL SECURE // ALL SYSTEMS NOMINAL";
-
-  if (tailgatingAlert) {
-    bannerText = "CRITICAL ALERT // TAILGATING DETECTED // MULTIPLE PERSON ENTRIES";
-  } else if (physicalBreachAlert) {
-    bannerText = "CRITICAL ALERT // UNPAIRED SECURITY BREACH // NO CARD DETECTED";
-  } else if (isDoorOpen) {
-    bannerText = "WARNING // PORTAL DOOR OPEN";
+  html += "  <div class='toolbar'>";
+  html += "    <div class='search-box'><input type='text' id='searchInput' placeholder='Search by Name...'></div>";
+  html += "    <div class='filters'><button class='filter-btn active' id='fAll'>All</button><button class='filter-btn' id='fIn'>Inside</button><button class='filter-btn' id='fOut'>Outside</button></div>";
+  html += "  </div>";
+  html += "  <div class='layout-grid'>";
+  html += "    <div>"; 
+  html += "      <div class='section-title'>Active Cases / Leaderboard <span class='badge' id='badgeActiveCount'>0 Active</span></div>";
+  html += "      <table><thead><tr><th>Roll #</th><th>Student Name</th><th>Location</th><th>Out Since</th><th>Current Dur.</th><th>Total Bunks</th><th>Alert Status</th></tr></thead><tbody id='activeTableBody'></tbody></table>";
+  html += "      <div class='section-title'>All Students <button class='toggle-btn' id='toggleAllBtn'>Show</button></div>";
+  html += "      <table id='allTable' class='hidden'><thead><tr><th>Roll #</th><th>Student Name</th><th>Location</th><th>IN</th><th>OUT</th><th>Bunks</th><th>Alert Status</th></tr></thead><tbody id='allTableBody'>";
+  
+  for (int i = 0; i < totalCount; i++) {
+    html += "<tr id='all-row-" + String(i) + "' data-name='" + String(students[i].name) + "'>";
+    html += "  <td>" + String(i + 1) + "</td>";
+    html += "  <td style='font-weight:600;'>" + String(students[i].name) + "</td>";
+    html += "  <td class='loc-cell'>--</td>";
+    html += "  <td class='mono in-cell'>--</td>";
+    html += "  <td class='mono out-cell'>--</td>";
+    html += "  <td class='mono bunk-cell'>0</td>";
+    html += "  <td><span class='alert-badge alert-green alert-cell'>GREEN</span></td>";
+    html += "</tr>";
   }
-
-  html += "<div style='margin-bottom: 20px; padding: 15px; border-radius: 8px; font-weight: bold; text-align: center;' class='" + bannerClass + "'>";
-  html += bannerText;
-  html += "</div>";
-  html += "<div class='summary-grid'>";
-  html += "  <div class='card'><div class='card-title'>System Time</div><div class='card-value' id='sysTimeDisplay'>" + String(liveNowEpoch > 0 ? formatMilitaryTime(liveNowEpoch) : "--:--") + "</div></div>";
-  html += "  <div class='card'><div class='card-title'>Total Students</div><div class='card-value' id='statTotal'>0</div></div>";
-  html += "  <div class='card'><div class='card-title'>Currently Inside</div><div class='card-value' id='statInside'>0</div></div>";
-  html += "  <div class='card'><div class='card-title'>Active Bunks</div><div class='card-value' style='color:#b91c1c;' id='statBunks'>0</div></div>";
-  html += "</div>";
-
-  html += "<div class='toolbar'>";
-  html += "  <div class='search-box'>";
-  html += "    <input type='text' id='searchInput' placeholder='Search by Name or Roll #...'>";
-  html += "  </div>";
-  html += "  <div class='filters' id='filterGroup'>";
-  html += "    <button class='filter-btn active' data-filter='all'>All</button>";
-  html += "    <button class='filter-btn' data-filter='inside'>Inside</button>";
-  html += "    <button class='filter-btn' data-filter='outside'>Outside</button>";
+  html += "      </tbody></table>";
+  html += "    </div>";
+  html += "    <div>"; 
+  html += "      <div class='section-title'>CCTV LOG DATA</div>";
+  html += "      <div class='cctv-card'><div class='cctv-title'>[CAM_01_CORE_FEED]</div><div id='cctvTerminal' class='cctv-stream'></div></div>";
+  html += "    </div>";
   html += "  </div>";
   html += "</div>";
 
-  // Active Cases Section
-  html += "<div class='section-title'>Active Cases / Leaderboard <span class='badge' id='activeBunksCount'>0</span></div>";
-  html += "<table><thead><tr>";
-  html += "<th>Roll #</th><th>Student Name</th><th>Location</th><th>Out Since</th><th>Current Dur.</th><th>Total Bunks</th><th>Alert Status</th>";
-  html += "</tr></thead><tbody id='activeTableBody'></tbody></table>";
+  html += "<div id='bunkPrintSection'>";
+  html += "  <div class='print-hdr'><h1>SHIELD</h1><div class='print-full-form'>Strategic Human Incident Evaluation & Logistics Database</div><div class='print-title'>Granular Time-Series Bunk Incident Ledger</div><div style='font-size:11px; margin-top:5px;'>Compilation System Time: <span id='printTimeField'>--:--</span></div></div>";
+  html += "  <table class='print-table'><thead><tr><th>S.No.</th><th>Name of Bunker</th><th>Out Time</th><th>Inn Time</th><th>No. of Bunks</th><th>Duration of each bunk</th></tr></thead><tbody id='printTableBody'></tbody></table>";
+  html += "</div>";
 
-  // All Students Section
-  html += "<div class='section-title'>All Students <button class='toggle-btn' id='toggleAllBtn'>Show</button></div>";
-  html += "<table id='allTable' class='hidden'><thead><tr>";
-  html += "<th>Roll #</th><th>Student Name</th><th>Location</th><th>IN</th><th>OUT</th><th>Bunks</th><th>Alert Status</th>";
-  html += "</tr></thead><tbody id='allTableBody'></tbody></table>";
-
+  html += "<div id='attendancePrintSection'>";
+  html += "  <div class='print-hdr'><h1>SHIELD</h1><div class='print-full-form'>Strategic Human Incident Evaluation & Logistics Database</div><div class='print-title'>Master Roll-Call & Operational Attendance Sheet</div><div style='font-size:11px; margin-top:5px;'>Compilation System Time: <span id='printAttTimeField'>--:--</span></div></div>";
+  html += "  <table class='print-table'><thead><tr><th>S.No.</th><th>Student Name</th><th>Roll No.</th><th>Status</th><th>First In Time</th><th>Total Active Hours</th></tr></thead><tbody id='printAttTableBody'></tbody></table>";
   html += "</div>";
 
   html += "<script>";
+  html += "window.activeFilter = 'all'; let lastStateStr = ''; let lastFetchedData = null;"; 
   html += "const themeToggleBtn = document.getElementById('themeToggleBtn');";
-  html += "const currentTheme = localStorage.getItem('theme') || 'light';";
-  html += "if (currentTheme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');";
-  html += "themeToggleBtn.addEventListener('click', () => {";
-  html += "  let theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';";
-  html += "  document.documentElement.setAttribute('data-theme', theme);";
-  html += "  localStorage.setItem('theme', theme);";
-  html += "});";  html += "const now = new Date();";
-  html += "const localSecondsSinceMidnight = Math.floor((now.getHours() * 3600) + (now.getMinutes() * 60) + now.getSeconds());";
-  html += "if (" + String(liveNowEpoch == 0 ? "true" : "false") + ") {";
-  html += "  fetch('/sync?t=' + localSecondsSinceMidnight);";
-  html += "}";
+  html += "if (localStorage.getItem('theme') == 'dark') document.documentElement.setAttribute('data-theme', 'dark');";
+  html += "themeToggleBtn.addEventListener('click', () => { let theme = document.documentElement.getAttribute('data-theme') == 'dark' ? 'light' : 'dark'; document.documentElement.setAttribute('data-theme', theme); localStorage.setItem('theme', theme); });";
+  
+  html += "document.getElementById('toggleAllBtn').addEventListener('click', (e) => { const table = document.getElementById('allTable'); if(table.classList.contains('hidden')) { table.classList.remove('hidden'); e.target.innerText = 'Hide'; } else { table.classList.add('hidden'); e.target.innerText = 'Show'; } });";
 
-  html += "const currentMillis = " + String(currentMillis) + ";";
-  html += "let students = [";
-  for (int i = 0; i < sizeof(students)/sizeof(students[0]); i++) {
-      auto &s = students[i];
-      unsigned long runSecs = 0;
-      if (s.stateChangeTimestamp > 0 && !s.isInside) {
-          runSecs = (currentMillis - s.stateChangeTimestamp) / 1000;
-      }
+  html += "function pushLog(time, msg, isErr) { const term = document.getElementById('cctvTerminal'); term.innerHTML += `<div class='log-line ${isErr?\"log-err\":\"\"}'>[${time}] ${msg}</div>`; term.scrollTop = term.scrollHeight; }";
 
-      html += "{";
-      html += "roll: " + String(s.rollNumber) + ",";
-      html += "name: '" + String(s.name) + "',";
-      html += "inside: " + String(s.isInside ? "true" : "false") + ",";
-      html += "inTime: '" + formatMilitaryTime(s.lastEntryTime) + "',";
-      html += "outTime: '" + formatMilitaryTime(s.lastExitTime) + "',";
-      html += "bunks: " + String(s.bunkCount) + ",";
-      html += "alert: '" + s.colorAlert + "',";
-      html += "runSecs: " + String(runSecs);
-      html += "}";
-      if (i < (sizeof(students)/sizeof(students[0])) - 1) html += ",";
-  }
-  html += "];";
-
-  html += "function formatDur(secs) {";
-  html += "  if(secs === 0) return '--';";
-  html += "  let m = Math.floor(secs / 60);";
-  html += "  let s = secs % 60;";
-  html += "  return m + 'm ' + s + 's';";
-  html += "}";
-
-  html += "let currentFilter = 'all';";
-  html += "let searchQuery = '';";
-
-  html += "function render() {";
-  html += "  let activeBunks = 0;";
-  html += "  let insideCount = 0;";
-
-  html += "  students.forEach(s => {";
-  html += "    if(s.inside) insideCount++;";
-  html += "    if(s.alert === 'RED' || s.alert === 'YELLOW') activeBunks++;";
-  html += "  });";
-
-  html += "  document.getElementById('statTotal').innerText = students.length;";
-  html += "  document.getElementById('statInside').innerText = insideCount;";
-  html += "  document.getElementById('statBunks').innerText = activeBunks;";
-  html += "  document.getElementById('activeBunksCount').innerText = activeBunks + ' Active';";
-
-  html += "  let filtered = students.filter(s => {";
-  html += "    let matchSearch = s.name.toLowerCase().includes(searchQuery) || String(s.roll).includes(searchQuery);";
-  html += "    let matchFilter = true;";
-  html += "    if(currentFilter === 'inside') matchFilter = s.inside;";
-  html += "    if(currentFilter === 'outside') matchFilter = !s.inside;";
-  html += "    return matchSearch && matchFilter;";
-  html += "  });";
-
-  html += "  let activeHTML = '';";
-  html += "  let allHTML = '';";
-
-  html += "  let activeStudents = filtered.filter(s => s.alert === 'RED' || s.alert === 'YELLOW');";
-  html += "  activeStudents.sort((a,b) => b.runSecs - a.runSecs);"; // Sort by current duration descending
-
-  html += "  if(activeStudents.length === 0) {";
-  html += "    activeHTML = `<tr><td colspan=\"7\" style='text-align:center; color:#6b7280; padding:20px;'>No active cases. All clear.</td></tr>`;";
-  html += "  } else {";
-  html += "    activeStudents.forEach(s => {";
-  html += "      let alertClass = s.alert === 'RED' ? 'alert-red' : (s.alert === 'YELLOW' ? 'alert-yellow' : 'alert-green');";
-  html += "      activeHTML += `<tr>";
-  html += "        <td class='mono'>${String(s.roll).padStart(2, '0')}</td>";
-  html += "        <td style='font-weight:600;'>${s.name}</td>";
-  html += "        <td><span class='status-indicator status-out'></span>Outside</td>";
-  html += "        <td class='mono'>${s.outTime}</td>";
-  html += "        <td class='mono' style='color:#b91c1c; font-weight:600;'>${formatDur(s.runSecs)}</td>";
-  html += "        <td class='mono'>${s.bunks}</td>";
-  html += "        <td><span class='alert-badge ${alertClass}'>${s.alert}</span></td>";
-  html += "      </tr>`;";
-  html += "    });";
-  html += "  }";
-
-  html += "  filtered.sort((a,b) => a.name.localeCompare(b.name)).forEach(s => {";
-  html += "    let locText = s.inside ? 'Inside' : 'Outside';";
-  html += "    let locStatus = s.inside ? 'status-in' : 'status-out';";
-  html += "    let alertClass = s.alert === 'RED' ? 'alert-red' : (s.alert === 'YELLOW' ? 'alert-yellow' : 'alert-green');";
-  html += "    allHTML += `<tr>";
-  html += "      <td class='mono'>${String(s.roll).padStart(2, '0')}</td>";
-  html += "      <td style='font-weight:600;'>${s.name}</td>";
-  html += "      <td><span class='status-indicator ${locStatus}'></span>${locText}</td>";
-  html += "      <td class='mono'>${s.inTime}</td>";
-  html += "      <td class='mono'>${s.outTime}</td>";
-  html += "      <td class='mono'>${s.bunks}</td>";
-  html += "      <td><span class='alert-badge ${alertClass}'>${s.alert}</span></td>";
-  html += "    </tr>`;";
-  html += "  });";
-
-  html += "  document.getElementById('activeTableBody').innerHTML = activeHTML;";
-  html += "  document.getElementById('allTableBody').innerHTML = allHTML || `<tr><td colspan=\"7\" style='text-align:center;'>No matching students found.</td></tr>`;";
-  html += "}";
-
-  html += "document.getElementById('searchInput').addEventListener('input', (e) => {";
-  html += "  searchQuery = e.target.value.toLowerCase();";
-  html += "  render();";
-  html += "});";
-
-  html += "document.querySelectorAll('.filter-btn').forEach(btn => {";
-  html += "  btn.addEventListener('click', (e) => {";
-  html += "    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));";
-  html += "    e.target.classList.add('active');";
-  html += "    currentFilter = e.target.dataset.filter;";
-  html += "    render();";
-  html += "  });";
-  html += "});";
-
-  html += "document.getElementById('toggleAllBtn').addEventListener('click', (e) => {";
-  html += "  const table = document.getElementById('allTable');";
-  html += "  if(table.classList.contains('hidden')) {";
-  html += "    table.classList.remove('hidden');";
-  html += "    e.target.innerText = 'Hide';";
-  html += "  } else {";
-  html += "    table.classList.add('hidden');";
-  html += "    e.target.innerText = 'Show';";
-  html += "  }";
-  html += "});";
-
-  html += "render();";
-
-  html += "async function fetchData() {";
+  html += "async function printBunkerReport() {";
   html += "  try {";
-  html += "    const res = await fetch('/data');";
-  html += "    if(!res.ok) return;";
-  html += "    const data = await res.json();";
-  html += "    students = data.students;";
-  html += "    document.getElementById('sysTimeDisplay').innerText = data.sysTime;";
-  html += "    render();";
-  html += "  } catch(e) { console.error('Fetch error:', e); }";
+  html += "    document.getElementById('attendancePrintSection').style.display = 'none';";
+  html += "    document.getElementById('bunkPrintSection').style.display = 'block';";
+  html += "    let res = await fetch('/bunklogs'); let logs = await res.json();";
+  html += "    document.getElementById('printTimeField').innerText = document.getElementById('sysTimeDisplay').innerText;";
+  html += "    let pBody = ''; logs.forEach((log, idx) => { pBody += `<tr><td>${idx + 1}</td><td style='font-weight:bold;'>${log.name}</td><td class='print-mono'>${log.out}</td><td class='print-mono'>${log.in}</td><td class='print-mono'>${log.tally}</td><td class='print-mono'>${log.duration}</td></tr>`; });";
+  html += "    if(logs.length == 0) pBody = '<tr><td colspan=\"6\" style=\"text-align:center; padding:15px;\">No historic bunk incidents recorded.</td></tr>';";
+  html += "    document.getElementById('printTableBody').innerHTML = pBody; window.print();";
+  html += "  } catch(e) { console.error(e); }";
   html += "}";
-  html += "setInterval(fetchData, 3000);";
 
+  html += "function printAttendanceReport() {";
+  html += "  document.getElementById('bunkPrintSection').style.display = 'none';";
+  html += "  document.getElementById('attendancePrintSection').style.display = 'block';";
+  html += "  document.getElementById('printAttTimeField').innerText = document.getElementById('sysTimeDisplay').innerText;";
+  html += "  if(!lastFetchedData) return;";
+  html += "  let pBody = '';";
+  html += "  lastFetchedData.students.forEach((s, idx) => {";
+  html += "    pBody += `<tr><td>${idx + 1}</td><td style='font-weight:bold;'>${s.name}</td><td class='print-mono'>${s.roll.toString().padStart(2,'0')}</td><td style='font-weight:600; color:${s.isInside?\"#10b981\":\"#f59e0b\"};'>${s.isInside?\"INSIDE\":\"OUTSIDE\"}</td><td class='print-mono'>${s.firstIn}</td><td class='print-mono'>${s.totalHours}</td></tr>`;";
+  html += "  });";
+  html += "  document.getElementById('printAttTableBody').innerHTML = pBody; window.print();";
+  html += "}";
+
+  html += "async function updateDashboard() {";
+  html += "  try {";
+  html += "    let res = await fetch('/data'); let data = await res.json(); lastFetchedData = data;"; 
+  html += "    let banner = document.getElementById('statusBanner'); let cctv = document.getElementById('cctvTerminal');";
+  html += "    let currentStateStr = data.tailgating + '-' + data.breach + '-' + data.doorOpen;";
+  html += "    if(currentStateStr !== lastStateStr) {";
+  html += "      if(data.tailgating) pushLog(data.sysTime, 'CRITICAL: TAILGATING DETECTED', true);";
+  html += "      else if(data.breach) pushLog(data.sysTime, 'CRITICAL: SECURITY BREACH DETECTED', true);";
+  html += "      else pushLog(data.sysTime, 'Portal status secure.', false); lastStateStr = currentStateStr;";
+  html += "    }";
+  html += "    if (data.tailgating) { banner.className = 'banner-box status-alert'; banner.innerText = '🚨 PORTAL CRITICAL: TAILGATING DETECTED'; }";
+  html += "    else if (data.breach) { banner.className = 'banner-box status-alert'; banner.innerText = '🚨 PORTAL CRITICAL: SECURITY BREACH'; }";
+  html += "    else { banner.className = 'banner-box status-secure'; banner.innerText = 'SYSTEM SECURE // PORTAL MONITOR: LOCKED'; }";
+  
+  html += "    document.getElementById('sysTimeDisplay').innerText = data.sysTime;";
+  html += "    document.getElementById('statTotal').innerText = data.total; document.getElementById('statInside').innerText = data.inside; document.getElementById('statBunks').innerText = data.bunksCount; document.getElementById('badgeActiveCount').innerText = data.bunksCount + ' Active';";
+  
+  html += "    let query = document.getElementById('searchInput').value.toLowerCase(); let activeHTML = ''; let activeCount = 0;";
+  html += "    data.students.forEach((s, idx) => {";
+  html += "      let allRow = document.getElementById('all-row-' + idx);";
+  html += "      if(allRow) {";
+  html += "        allRow.querySelector('.loc-cell').innerHTML = `<span class='status-indicator ${s.isInside ? 'status-in':'status-out'}'></span>${s.isInside ? 'Inside':'Outside'}`;";
+  html += "        allRow.querySelector('.in-cell').innerText = s.lastEntry; allRow.querySelector('.out-cell').innerText = s.lastExit; allRow.querySelector('.bunk-cell').innerText = s.bunkCount;";
+  html += "        let ab = allRow.querySelector('.alert-cell'); ab.innerText = s.alert; ab.className = `alert-badge ${s.alert=='RED'?'alert-red':(s.alert=='YELLOW'?'alert-yellow':'alert-green')} alert-cell`;";
+  html += "        if(s.name.toLowerCase().includes(query) && (window.activeFilter=='all' || (window.activeFilter=='inside'&&s.isInside) || (window.activeFilter=='outside'&&!s.isInside))) allRow.style.display = ''; else allRow.style.display = 'none';";
+  html += "      }";
+  html += "      if (!s.isInside && (s.alert=='RED' || s.alert=='YELLOW')) {";
+  html += "        activeCount++; let alertBadge = s.alert=='RED'?'alert-red':'alert-yellow';";
+  html += "        activeHTML += `<tr><td>${s.roll}</td><td style='font-weight:600;'>${s.name}</td><td><span class='status-indicator status-out'></span>Outside</td><td class='mono'>${s.lastExit}</td><td class='mono' style='color:#b91c1c; font-weight:600;'>${s.duration}</td><td class='mono'>${s.bunkCount}</td><td><span class='alert-badge ${alertBadge}'>${s.alert}</span></td></tr>`;";
+  html += "      }";
+  html += "    });";
+  html += "    if(activeCount == 0) activeHTML = '<tr><td colspan=\"7\" style=\"text-align:center; color:#6b7280; padding:20px;\">No active cases. All clear.</td></tr>';";
+  html += "    document.getElementById('activeTableBody').innerHTML = activeHTML;";
+  html += "  } catch(e) { console.error(e); }";
+  html += "}";
+
+  html += "const fAll = document.getElementById('fAll'), fIn = document.getElementById('fIn'), fOut = document.getElementById('fOut');";
+  html += "const setFilter = (btn, val) => { [fAll, fIn, fOut].forEach(b=>b.classList.remove('active')); btn.classList.add('active'); window.activeFilter = val; updateDashboard(); };";
+  html += "fAll.addEventListener('click', () => setFilter(fAll, 'all')); fIn.addEventListener('click', () => setFilter(fIn, 'inside')); fOut.addEventListener('click', () => setFilter(fOut, 'outside'));";
+  html += "document.getElementById('searchInput').addEventListener('input', updateDashboard); setInterval(updateDashboard, 1000);";
+  html += "window.onload = function() { if (" + String(initialEpochSeconds) + " === 0) { let d = new Date(); fetch('/sync?t=' + ((d.getHours() * 3600) + (d.getMinutes() * 60) + d.getSeconds())); } updateDashboard(); };";
   html += "</script></body></html>";
   return html;
-}
-void handleRoot() {
-  server.send(200, "text/html", getDashboardHTML());
-}
-
-void handleSync() {
-  if (server.hasArg("t")) {
-    initialEpochSeconds = server.arg("t").toInt();
-    epochSyncSystemTicks = millis();
-  }
-  server.send(200, "text/plain", "OK");
 }
 
 void handleData() {
   unsigned long currentMillis = millis();
-  unsigned long liveNowEpoch = getLiveEpochTime();
+  int totalCount = sizeof(students) / sizeof(students[0]);
+  int insideCount = 0; int activeBunksCount = 0;
+  for (auto &s : students) { if (s.isInside) insideCount++; if (s.colorAlert == "RED" || s.colorAlert == "YELLOW") activeBunksCount++; }
 
   String json = "{";
-  json += "\"sysTime\": \"" + String(liveNowEpoch > 0 ? formatMilitaryTime(liveNowEpoch) : "--:--") + "\",";
-  json += "\"students\": [";
+  json += "\"sysTime\":\"" + formatMilitaryTime(getLiveEpochTime()) + "\",";
+  json += "\"total\":" + String(totalCount) + ",";
+  json += "\"inside\":" + String(insideCount) + ",";
+  json += "\"bunksCount\":" + String(activeBunksCount) + ",";
+  json += "\"tailgating\":" + String(tailgatingAlert ? "true" : "false") + ",";
+  json += "\"breach\":" + String(physicalBreachAlert ? "true" : "false") + ",";
+  json += "\"doorOpen\":" + String(digitalRead(HALL_PIN) ? "true" : "false") + ",";
+  json += "\"students\":[";
+  
+  for (int i = 0; i < totalCount; i++) {
+    unsigned long durationSecs = (students[i].stateChangeTimestamp > 0) ? (currentMillis - students[i].stateChangeTimestamp) / 1000 : 0;
+    String durStr = String(durationSecs / 60) + "m " + String(durationSecs % 60) + "s";
+    
+    unsigned long runningInsideSecs = students[i].totalInsideTimeSecs;
+    if (students[i].isInside && students[i].lastInsideTickTimestamp > 0) {
+      runningInsideSecs += (currentMillis - students[i].lastInsideTickTimestamp) / 1000;
+    }
+    String totalInsideStr = String(runningInsideSecs / 3600) + "h " + String((runningInsideSecs % 3600) / 60) + "m";
 
-  for (int i = 0; i < sizeof(students)/sizeof(students[0]); i++) {
-      auto &s = students[i];
-      unsigned long runSecs = 0;
-      if (s.stateChangeTimestamp > 0 && !s.isInside) {
-          runSecs = (currentMillis - s.stateChangeTimestamp) / 1000;
-      }
-
-      json += "{";
-      json += "\"roll\": " + String(s.rollNumber) + ",";
-      json += "\"name\": \"" + String(s.name) + "\",";
-      json += "\"inside\": " + String(s.isInside ? "true" : "false") + ",";
-      json += "\"inTime\": \"" + formatMilitaryTime(s.lastEntryTime) + "\",";
-      json += "\"outTime\": \"" + formatMilitaryTime(s.lastExitTime) + "\",";
-      json += "\"bunks\": " + String(s.bunkCount) + ",";
-      json += "\"alert\": \"" + s.colorAlert + "\",";
-      json += "\"runSecs\": " + String(runSecs);
-      json += "}";
-      if (i < (sizeof(students)/sizeof(students[0])) - 1) json += ",";
+    json += "{";
+    json += "\"roll\":" + String(i + 1) + ",";
+    json += "\"name\":\"" + String(students[i].name) + "\",";
+    json += "\"isInside\":" + String(students[i].isInside ? "true" : "false") + ",";
+    json += "\"lastEntry\":\"" + formatMilitaryTime(students[i].lastEntryTime) + "\",";
+    json += "\"lastExit\":\"" + formatMilitaryTime(students[i].lastExitTime) + "\",";
+    json += "\"firstIn\":\"" + formatMilitaryTime(students[i].firstInTime) + "\",";
+    json += "\"totalHours\":\"" + totalInsideStr + "\",";
+    json += "\"duration\":\"" + durStr + "\",";
+    json += "\"bunkCount\":" + String(students[i].bunkCount) + ",";
+    json += "\"alert\":\"" + students[i].colorAlert + "\"";
+    json += "}";
+    if (i < totalCount - 1) json += ",";
   }
   json += "]}";
-
   server.send(200, "application/json", json);
 }
 
-void handleExport() {
-  unsigned long liveNowEpoch = getLiveEpochTime();
-  String pdfHtml = "<!DOCTYPE html><html lang='en'><head>";
-  pdfHtml += "<meta charset='UTF-8'>";
-  pdfHtml += "<title>SHIELD Security Log Report</title>";
-  pdfHtml += "<link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap' rel='stylesheet'>";
-  pdfHtml += "<style>";
-  pdfHtml += ":root {";
-  pdfHtml += "  --text-main: #000000;";
-  pdfHtml += "  --text-muted: #555555;";
-  pdfHtml += "  --border: #cccccc;";
-  pdfHtml += "  --bg-alt: #f4f4f4;";
-  pdfHtml += "}";
-  pdfHtml += "@page { margin: 20mm; size: A4 portrait; }";
-  pdfHtml += "body { font-family: 'Inter', sans-serif; color: var(--text-main); margin: 0; padding: 0; background: #fff; line-height: 1.5; }";
-  pdfHtml += ".report-container { max-width: 800px; margin: 0 auto; padding: 20px; }";
-  pdfHtml += ".header { border-bottom: 2px solid var(--text-main); padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }";
-  pdfHtml += ".header-left h1 { margin: 0 0 5px 0; font-size: 24px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }";
-  pdfHtml += ".header-left .meta { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }";
-  pdfHtml += ".header-right { text-align: right; }";
-  pdfHtml += ".report-time { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; border: 1px solid var(--border); padding: 5px 10px; }";
-  pdfHtml += "table { width: 100%; border-collapse: collapse; margin-top: 10px; }";
-  pdfHtml += "th, td { padding: 10px 12px; text-align: left; font-size: 12px; border-bottom: 1px solid var(--border); }";
-  pdfHtml += "th { background-color: var(--bg-alt); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; }";
-  pdfHtml += ".student-name { font-weight: 600; font-size: 13px; }";
-  pdfHtml += ".rank-roll { font-family: 'JetBrains Mono'; font-size: 11px; color: var(--text-muted); }";
-  pdfHtml += ".data-mono { font-family: 'JetBrains Mono'; }";
-  pdfHtml += ".bunk { font-weight: 700; font-size: 13px; }";
-  pdfHtml += ".footer { margin-top: 40px; text-align: center; font-size: 10px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 15px; }";
-  pdfHtml += "</style></head><body>";
-
-  pdfHtml += "<div class='report-container'>";
-  pdfHtml += "<div class='header'>";
-  pdfHtml += "  <div class='header-left'>";
-  pdfHtml += "    <h1>SHIELD LOG REPORT</h1>";
-  pdfHtml += "    <div class='meta'>Secure Hardware Interface // Daily Bunk Summary</div>";
-  pdfHtml += "  </div>";
-  pdfHtml += "  <div class='header-right'>";
-  pdfHtml += "    <div class='report-time'>GENERATED: " + String(liveNowEpoch > 0 ? formatMilitaryTime(liveNowEpoch) : "--") + "</div>";
-  pdfHtml += "  </div>";
-  pdfHtml += "</div>";
-
-  pdfHtml += "<table id='reportTable'><thead><tr>";
-  pdfHtml += "<th>Rank</th><th>Roll #</th><th>Student Name</th><th>Entries</th><th>Exits</th><th>Total Bunks</th><th>Total Bunk Dur.</th><th>Last Bunk Details</th>";
-  pdfHtml += "</tr></thead><tbody>";
-
-  pdfHtml += "</tbody></table>";
-  pdfHtml += "<div class='footer'>Report auto-generated by SHIELD System v14.0 &bull; Official Security Record</div>";
-  pdfHtml += "</div>";
-
-  // Inject students for sorting
-  pdfHtml += "<script>";
-  pdfHtml += "const students = [";
-  for (int i = 0; i < sizeof(students)/sizeof(students[0]); i++) {
-      auto &s = students[i];
-      pdfHtml += "{";
-      pdfHtml += "roll: " + String(s.rollNumber) + ",";
-      pdfHtml += "name: '" + String(s.name) + "',";
-      pdfHtml += "entries: " + String(s.entryCount) + ",";
-      pdfHtml += "exits: " + String(s.exitCount) + ",";
-      pdfHtml += "bunks: " + String(s.bunkCount) + ",";
-      pdfHtml += "totalDur: " + String(s.totalBunkDuration) + ",";
-      pdfHtml += "lastDur: " + String(s.lastBunkDuration) + ",";
-      pdfHtml += "lastExit: '" + formatMilitaryTime(s.lastExitTime) + "',";
-      pdfHtml += "lastEntry: '" + formatMilitaryTime(s.lastEntryTime) + "',";
-      pdfHtml += "isInside: " + String(s.isInside ? "true" : "false");
-      pdfHtml += "}";
-      if (i < (sizeof(students)/sizeof(students[0])) - 1) pdfHtml += ",";
+void handleBunkLogs() {
+  String json = "[";
+  for(int i = 0; i < totalLoggedBunks; i++) {
+    json += "{";
+    json += "\"name\":\"" + bunkLogs[i].name + "\",";
+    json += "\"out\":\"" + formatMilitaryTime(bunkLogs[i].outTime) + "\",";
+    json += "\"in\":\"" + formatMilitaryTime(bunkLogs[i].inTime) + "\",";
+    json += "\"tally\":" + String(bunkLogs[i].absoluteBunkTally) + ",";
+    json += "\"duration\":\"" + bunkLogs[i].durationStr + "\"";
+    json += "}";
+    if(i < totalLoggedBunks - 1) json += ",";
   }
-  pdfHtml += "];";
-
-  pdfHtml += "function formatDur(secs) {\n";
-  pdfHtml += "    if(secs === 0) return '--';\n";
-  pdfHtml += "    let m = Math.floor(secs / 60);\n";
-  pdfHtml += "    let s = secs % 60;\n";
-  pdfHtml += "    return m + 'm ' + s + 's';\n";
-  pdfHtml += "}\n";
-
-  pdfHtml += "window.onload = function() {\n";
-  pdfHtml += "    students.sort((a,b) => {\n";
-  pdfHtml += "       if(b.totalDur !== a.totalDur) return b.totalDur - a.totalDur;\n";
-  pdfHtml += "       return b.bunks - a.bunks;\n";
-  pdfHtml += "    });\n";
-
-  pdfHtml += "    let tbody = document.querySelector('#reportTable tbody');\n";
-  pdfHtml += "    let html = '';\n";
-  pdfHtml += "    let rank = 1;\n";
-  pdfHtml += "    for(let s of students) {\n";
-  pdfHtml += "       let rStr = s.bunks > 0 ? '#' + rank : '--';\n";
-  pdfHtml += "       html += `<tr>";
-  pdfHtml += "          <td class='data-mono'><b>${rStr}</b></td>";
-  pdfHtml += "          <td class='rank-roll'>${String(s.roll).padStart(2, '0')}</td>";
-  pdfHtml += "          <td class='student-name'>${s.name}</td>";
-  pdfHtml += "          <td class='data-mono'>${s.entries}</td>";
-  pdfHtml += "          <td class='data-mono'>${s.exits}</td>";
-  pdfHtml += "          <td class='data-mono bunk'>${s.bunks}</td>";
-  pdfHtml += "          <td class='data-mono'>${formatDur(s.totalDur)}</td>";
-  pdfHtml += "          <td class='data-mono'>${formatDur(s.lastDur)}</td>";
-  pdfHtml += "       </tr>`;\n";
-  pdfHtml += "       if(s.bunks > 0) rank++;\n";
-  pdfHtml += "    }\n";
-  pdfHtml += "    tbody.innerHTML = html;\n";
-  pdfHtml += "    window.print();\n";
-  pdfHtml += "}\n";
-
-  pdfHtml += "</script>";
-  pdfHtml += "</body></html>";
-
-  server.send(200, "text/html", pdfHtml);
+  json += "]";
+  server.send(200, "application/json", json);
 }
+
+void handleRoot() { server.send(200, "text/html", getDashboardHTML()); }
+void handleSync() { if (server.hasArg("t")) { initialEpochSeconds = server.arg("t").toInt(); epochSyncSystemTicks = millis(); } server.send(200, "text/plain", "OK"); }
+
 void setup() {
   Serial.begin(115200);
-  delay(100);
-
-  pinMode(IR_PIN, INPUT);
-  pinMode(HALL_PIN, INPUT);
-  SPI.begin();
-  rfid.PCD_Init();
-
-  WiFi.softAPConfig(local_ip, gateway, subnet);
-  WiFi.softAP(ssid, password);
-
-  server.on("/", handleRoot);
-  server.on("/sync", handleSync);
-  server.on("/export", handleExport);
-  server.on("/data", handleData);
+  pinMode(IR_PIN, INPUT); pinMode(HALL_PIN, INPUT);
+  SPI.begin(); rfid.PCD_Init();
+  WiFi.softAPConfig(local_ip, gateway, subnet); WiFi.softAP(ssid, password);
+  server.on("/", handleRoot); server.on("/data", handleData); server.on("/bunklogs", handleBunkLogs); server.on("/sync", handleSync);
   server.begin();
 }
 
 void loop() {
   server.handleClient();
-
   unsigned long currentTime = millis();
-  bool currentIR = digitalRead(IR_PIN);
-  bool currentHall = digitalRead(HALL_PIN);
+  bool currentIR = digitalRead(IR_PIN); bool currentHall = digitalRead(HALL_PIN); 
 
-  if (currentTime - lastNetworkCheck >= 300) {
+  if (currentTime - lastNetworkCheck >= 500) {
     lastNetworkCheck = currentTime;
     for (auto &s : students) {
-      if (s.stateChangeTimestamp > 0 && !s.isInside) {
+      if (s.isInside) {
+        if (s.lastInsideTickTimestamp > 0) {
+          s.totalInsideTimeSecs += (currentTime - s.lastInsideTickTimestamp) / 1000;
+        }
+        s.lastInsideTickTimestamp = currentTime;
+      }
+      if (s.stateChangeTimestamp > 0 && !s.isInside) { 
         unsigned long runningOutsideTime = (currentTime - s.stateChangeTimestamp) / 1000;
         if (runningOutsideTime >= 20) {
           s.colorAlert = "RED";
           if (!s.bunkLoggedForCurrentCycle) {
-            s.bunkCount++;
-            s.bunkLoggedForCurrentCycle = true;
-            s.currentBunkStart = currentTime;
+            s.bunkCount++; s.bunkLoggedForCurrentCycle = true; 
+            if (totalLoggedBunks < 100) {
+              bunkLogs[totalLoggedBunks] = {String(s.name), s.lastExitTime, 0, "Active...", s.bunkCount};
+              totalLoggedBunks++;
+            }
           }
-          if (s.currentBunkStart > 0 && (currentTime - s.currentBunkStart >= 1000)) {
-            unsigned long dur = (currentTime - s.currentBunkStart) / 1000;
-            s.totalBunkDuration += dur;
-            s.lastBunkDuration += dur;
-            s.currentBunkStart += dur * 1000; // Advance by the exact seconds added
-          }
-        } else if (runningOutsideTime >= 10) {
-          s.colorAlert = "YELLOW";
-        }
+        } else if (runningOutsideTime >= 10) { s.colorAlert = "YELLOW"; }
       }
     }
   }
 
-  // Instant Trigger Mechanism
-  if ((currentHall && !lastHallState) || (currentIR && !lastIRState)) {
-    if (!windowActive) {
-      physicalBreachAlert = true;
-      alertTriggerTime = currentTime; // Lock down the start of the breach
-      windowActive = true;
-      windowStartTime = currentTime;
-      RFID_Scan_Count = 0;
-      IR_Trip_Count = 0;
-      activeStudent = nullptr;
-    }
+  if (((currentHall && !lastHallState) || (currentIR && !lastIRState)) && !windowActive) {
+    windowActive = true; windowStartTime = currentTime; RFID_Scan_Count = 0; IR_Trip_Count = 0; activeStudent = nullptr;
   }
-
-  if (windowActive && (currentIR && !lastIRState)) {
-    IR_Trip_Count++;
-    if (RFID_Scan_Count > 0 && IR_Trip_Count >= 2) {
-      tailgatingAlert = true;
-      physicalBreachAlert = false;
-      alertTriggerTime = currentTime;
-    }
-  }
+  if (windowActive && (currentIR && !lastIRState)) IR_Trip_Count++;
 
   if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
     Student* s = nullptr;
     for (auto &st : students) {
-      bool match = true;
-      for (int i = 0; i < 4; i++) {
-        if (rfid.uid.uidByte[i] != st.uid[i]) match = false;
-      }
+      bool match = true; for (int i = 0; i < 4; i++) { if (rfid.uid.uidByte[i] != st.uid[i]) match = false; }
       if (match) s = &st;
     }
-
     if (s) {
-      if (physicalBreachAlert && RFID_Scan_Count == 0) {
-        physicalBreachAlert = false;
-      }
-      if (!windowActive) {
-        windowActive = true;
-        windowStartTime = currentTime;
-        IR_Trip_Count = 0;
-      }
-      RFID_Scan_Count++;
-      activeStudent = s;
+      if (!windowActive) { windowActive = true; windowStartTime = currentTime; RFID_Scan_Count = 0; IR_Trip_Count = 0; }
+      RFID_Scan_Count++; activeStudent = s; physicalBreachAlert = false;
     }
-    rfid.PICC_HaltA();
-    rfid.PCD_StopCrypto1();
+    rfid.PICC_HaltA(); rfid.PCD_StopCrypto1();
   }
 
   if (windowActive && (currentTime - windowStartTime >= FUSION_WINDOW_MS)) {
-    if (RFID_Scan_Count == 0) {
-      physicalBreachAlert = true;
-      tailgatingAlert = false;
-      alertTriggerTime = currentTime;
-    }
+    if (RFID_Scan_Count == 0) { physicalBreachAlert = true; tailgatingAlert = false; } 
     else if (activeStudent != nullptr) {
-      if (IR_Trip_Count >= 2) {
-        tailgatingAlert = true;
-        physicalBreachAlert = false;
-        alertTriggerTime = currentTime;
-      } else {
-        tailgatingAlert = false;
-        physicalBreachAlert = false;
-      }
-
-      activeStudent->stateChangeTimestamp = currentTime;
+      tailgatingAlert = (IR_Trip_Count >= 2); physicalBreachAlert = false;
+      activeStudent->stateChangeTimestamp = currentTime; 
       activeStudent->isInside = !activeStudent->isInside;
-      activeStudent->colorAlert = "GREEN";
-
+      activeStudent->colorAlert = "GREEN"; 
+      
       if (activeStudent->isInside) {
-        activeStudent->entryCount++;
-        activeStudent->lastEntryTime = getLiveEpochTime();
-        activeStudent->bunkLoggedForCurrentCycle = false;
-        activeStudent->currentBunkStart = 0;
+        if(activeStudent->firstInTime == 0) activeStudent->firstInTime = getLiveEpochTime();
+        activeStudent->entryCount++; activeStudent->lastEntryTime = getLiveEpochTime();
+        activeStudent->lastInsideTickTimestamp = currentTime;
+        activeStudent->bunkLoggedForCurrentCycle = false; 
+        for(int k = totalLoggedBunks - 1; k >= 0; k--) {
+          if(bunkLogs[k].name == String(activeStudent->name) && bunkLogs[k].inTime == 0) {
+            bunkLogs[k].inTime = activeStudent->lastEntryTime;
+            bunkLogs[k].durationStr = calculateIntervalStr(bunkLogs[k].outTime, bunkLogs[k].inTime); break;
+          }
+        }
       } else {
-        activeStudent->exitCount++;
-        activeStudent->lastExitTime = getLiveEpochTime();
-        activeStudent->lastBunkDuration = 0; // Reset when they go outside, ready for a new bunk
-
+        activeStudent->exitCount++; activeStudent->lastExitTime = getLiveEpochTime();
+        if (activeStudent->lastInsideTickTimestamp > 0) {
+          activeStudent->totalInsideTimeSecs += (currentTime - activeStudent->lastInsideTickTimestamp) / 1000;
+        }
+        activeStudent->lastInsideTickTimestamp = 0;
       }
     }
-    windowActive = false;
-    activeStudent = nullptr;
+    windowActive = false; activeStudent = nullptr;
   }
-
-  // Pure Timestamp-driven Auto-Reset Engine (Bypasses state checks to guarantee clear-out)
-  if ((physicalBreachAlert || tailgatingAlert) && (currentTime - alertTriggerTime >= 4000)) {
-     physicalBreachAlert = false;
-     tailgatingAlert = false;
+  if (!currentHall && !currentIR && (physicalBreachAlert || tailgatingAlert) && (currentTime - windowStartTime > 4000)) {
+     physicalBreachAlert = false; tailgatingAlert = false;
   }
-
-  lastIRState = currentIR;
-  lastHallState = currentHall;
+  lastIRState = currentIR; lastHallState = currentHall;
 }
