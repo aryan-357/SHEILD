@@ -143,6 +143,10 @@ String getDashboardHTML() {
   html += ".cctv-stream { background: #020617; padding: 12px; border-radius: 4px; font-size: 12px; line-height: 1.5; height: 320px; overflow-y: auto; border-left: 3px solid #38bdf8; }";
   html += ".cctv-stream.breach { border-left-color: #ef4444; }";
   html += ".log-line { border-bottom: 1px solid #1e293b; padding: 4px 0; font-size: 11px; }";
+  html += ".bunk-sub-row { background: var(--surface-alt); }";
+  html += ".bunk-sub-row td { padding: 10px 16px; border-left: 3px solid var(--primary); font-size: 13px; }";
+  html += ".leaderboard-row { cursor: pointer; transition: background 0.2s; }";
+  html += ".leaderboard-row:hover { background: var(--bg); }";
   
   html += "#bunkPrintSection, #attendancePrintSection { display: none; }";
   html += "@media print {";
@@ -182,6 +186,8 @@ String getDashboardHTML() {
   html += "    <div>"; 
   html += "      <div class='section-title'>Active Cases / Leaderboard <span class='badge' id='badgeActiveCount'>0 Active</span></div>";
   html += "      <table><thead><tr><th>Roll #</th><th>Student Name</th><th>Location</th><th>Out Since</th><th>Current Dur.</th><th>Total Bunks</th><th>Alert Status</th></tr></thead><tbody id='activeTableBody'></tbody></table>";
+  html += "      <div class='section-title'>Daily Bunk Leaderboard</div>";
+  html += "      <table><thead><tr><th>Rank</th><th>Student Name</th><th>Total Bunks</th><th>Total Duration</th></tr></thead><tbody id='bunkLeaderboardBody'></tbody></table>";
   html += "      <div class='section-title'>All Students <button class='toggle-btn' id='toggleAllBtn'>Show</button></div>";
   html += "      <table id='allTable' class='hidden'><thead><tr><th>Roll #</th><th>Student Name</th><th>Location</th><th>IN</th><th>OUT</th><th>Bunks</th><th>Alert Status</th></tr></thead><tbody id='allTableBody'>";
   
@@ -207,7 +213,7 @@ String getDashboardHTML() {
 
   html += "<div id='bunkPrintSection'>";
   html += "  <div class='print-hdr'><h1>SHIELD</h1><div class='print-full-form'>Strategic Human Incident Evaluation & Logistics Database</div><div class='print-title'>Granular Time-Series Bunk Incident Ledger</div><div style='font-size:11px; margin-top:5px;'>Compilation System Time: <span id='printTimeField'>--:--</span></div></div>";
-  html += "  <table class='print-table'><thead><tr><th>S.No.</th><th>Name of Bunker</th><th>Out Time</th><th>Inn Time</th><th>No. of Bunks</th><th>Duration of each bunk</th></tr></thead><tbody id='printTableBody'></tbody></table>";
+  html += "  <table class='print-table'><thead><tr><th>S.No.</th><th>Name of Bunker</th><th>Total Bunks</th><th>Bunk Details</th></tr></thead><tbody id='printTableBody'></tbody></table>";
   html += "</div>";
 
   html += "<div id='attendancePrintSection'>";
@@ -231,8 +237,13 @@ String getDashboardHTML() {
   html += "    document.getElementById('bunkPrintSection').style.display = 'block';";
   html += "    let res = await fetch('/bunklogs'); let logs = await res.json();";
   html += "    document.getElementById('printTimeField').innerText = document.getElementById('sysTimeDisplay').innerText;";
-  html += "    let pBody = ''; logs.forEach((log, idx) => { pBody += `<tr><td>${idx + 1}</td><td style='font-weight:bold;'>${log.name}</td><td class='print-mono'>${log.out}</td><td class='print-mono'>${log.in}</td><td class='print-mono'>${log.tally}</td><td class='print-mono'>${log.duration}</td></tr>`; });";
-  html += "    if(logs.length == 0) pBody = '<tr><td colspan=\"6\" style=\"text-align:center; padding:15px;\">No historic bunk incidents recorded.</td></tr>';";
+  html += "    let grouped = {}; logs.forEach(log => { if(!grouped[log.name]) grouped[log.name] = []; grouped[log.name].push(log); });";
+  html += "    let pBody = ''; let idx = 1; Object.keys(grouped).forEach(name => {";
+  html += "      let gBunks = grouped[name];";
+  html += "      let detailsHtml = gBunks.map((b, i) => `<div><b>Bunk no. ${i+1}:</b> Out: ${b.out} | In: ${b.in} | Dur: ${b.duration}</div>`).join('');";
+  html += "      pBody += `<tr><td>${idx++}</td><td style='font-weight:bold;'>${name}</td><td class='print-mono'>${gBunks.length}</td><td class='print-mono'>${detailsHtml}</td></tr>`;";
+  html += "    });";
+  html += "    if(logs.length == 0) pBody = '<tr><td colspan=\"4\" style=\"text-align:center; padding:15px;\">No historic bunk incidents recorded.</td></tr>';";
   html += "    document.getElementById('printTableBody').innerHTML = pBody; window.print();";
   html += "  } catch(e) { console.error(e); }";
   html += "}";
@@ -251,7 +262,9 @@ String getDashboardHTML() {
 
   html += "async function updateDashboard() {";
   html += "  try {";
-  html += "    let res = await fetch('/data'); let data = await res.json(); lastFetchedData = data;"; 
+  html += "    let [resData, resLogs] = await Promise.all([fetch('/data'), fetch('/bunklogs')]);";
+  html += "    let data = await resData.json(); let logs = await resLogs.json(); lastFetchedData = data;";
+  html += "    window.latestBunkLogs = logs;";
   html += "    let banner = document.getElementById('statusBanner'); let cctv = document.getElementById('cctvTerminal');";
   html += "    let currentStateStr = data.tailgating + '-' + data.breach + '-' + data.doorOpen;";
   html += "    if(currentStateStr !== lastStateStr) {";
@@ -282,7 +295,37 @@ String getDashboardHTML() {
   html += "    });";
   html += "    if(activeCount == 0) activeHTML = '<tr><td colspan=\"7\" style=\"text-align:center; color:#6b7280; padding:20px;\">No active cases. All clear.</td></tr>';";
   html += "    document.getElementById('activeTableBody').innerHTML = activeHTML;";
+  html += "    renderLeaderboard(logs);";
   html += "  } catch(e) { console.error(e); }";
+  html += "}";
+  html += "window.expandedRows = window.expandedRows || new Set();";
+  html += "window.toggleBunkDetails = function(name) { if(window.expandedRows.has(name)) window.expandedRows.delete(name); else window.expandedRows.add(name); renderLeaderboard(window.latestBunkLogs); };";
+  html += "function formatDur(secs) { if(secs==0) return '--'; return Math.floor(secs/60) + 'm ' + (secs%60) + 's'; }";
+
+  html += "function renderLeaderboard(logs) {";
+  html += "  if(!logs || logs.length==0) { document.getElementById('bunkLeaderboardBody').innerHTML = '<tr><td colspan=\"4\" style=\"text-align:center; color:#6b7280; padding:20px;\">No bunks recorded today.</td></tr>'; return; }";
+  html += "  let allBunks = [...logs].sort((a,b) => b.durationSecs - a.durationSecs);";
+  html += "  allBunks.forEach((b, i) => b.classRank = i + 1);";
+  html += "  let grouped = {};";
+  html += "  logs.forEach(log => {";
+  html += "    if(!grouped[log.name]) grouped[log.name] = { name: log.name, bunks: [], totalDur: 0 };";
+  html += "    grouped[log.name].bunks.push(log);";
+  html += "    grouped[log.name].totalDur += log.durationSecs;";
+  html += "  });";
+  html += "  let studentsArr = Object.values(grouped).sort((a,b) => b.totalDur - a.totalDur);";
+  html += "  let lHtml = '';";
+  html += "  studentsArr.forEach((s, i) => {";
+  html += "    let isExpanded = window.expandedRows.has(s.name);";
+  html += "    lHtml += `<tr class='leaderboard-row' onclick='window.toggleBunkDetails(\"${s.name}\")'><td>#${i+1}</td><td style='font-weight:600;'>${s.name} ${isExpanded?'▼':'▶'}</td><td class='mono'>${s.bunks.length}</td><td class='mono' style='font-weight:bold; color:#b91c1c;'>${formatDur(s.totalDur)}</td></tr>`;";
+  html += "    if(isExpanded) {";
+  html += "      lHtml += `<tr class='bunk-sub-row'><td colspan='4'><div style='margin-bottom:8px; font-weight:bold; font-size:12px; color:var(--text-muted);'>DETAILS:</div><table style='box-shadow:none; border:none; margin:0;'><thead><tr><th>Bunk No.</th><th>Out Time</th><th>In Time</th><th>Duration</th><th>Class Rank</th></tr></thead><tbody>`;";
+  html += "      s.bunks.forEach((b, j) => {";
+  html += "        lHtml += `<tr><td>#${j+1}</td><td class='mono'>${b.out}</td><td class='mono'>${b.in}</td><td class='mono'>${formatDur(b.durationSecs)}</td><td><b>#${b.classRank}</b></td></tr>`;";
+  html += "      });";
+  html += "      lHtml += `</tbody></table></td></tr>`;";
+  html += "    }";
+  html += "  });";
+  html += "  document.getElementById('bunkLeaderboardBody').innerHTML = lHtml;";
   html += "}";
 
   html += "const fAll = document.getElementById('fAll'), fIn = document.getElementById('fIn'), fOut = document.getElementById('fOut');";
@@ -345,8 +388,11 @@ void handleBunkLogs() {
     json += "\"name\":\"" + bunkLogs[i].name + "\",";
     json += "\"out\":\"" + formatMilitaryTime(bunkLogs[i].outTime) + "\",";
     json += "\"in\":\"" + formatMilitaryTime(bunkLogs[i].inTime) + "\",";
+    unsigned long endT = (bunkLogs[i].inTime == 0) ? getLiveEpochTime() : bunkLogs[i].inTime;
+    unsigned long dSecs = (endT > bunkLogs[i].outTime) ? (endT - bunkLogs[i].outTime) : 0;
     json += "\"tally\":" + String(bunkLogs[i].absoluteBunkTally) + ",";
-    json += "\"duration\":\"" + bunkLogs[i].durationStr + "\"";
+    json += "\"duration\":\"" + bunkLogs[i].durationStr + "\",";
+    json += "\"durationSecs\":" + String(dSecs);
     json += "}";
     if(i < totalLoggedBunks - 1) json += ",";
   }

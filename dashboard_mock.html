@@ -77,6 +77,10 @@ tr:last-child td { border-bottom: none; }
 .status-secure { background: #d1fae5; color: #065f46; border: 1px solid #34d399; }
 .status-alert { background: #fee2e2; color: #991b1b; border: 1px solid #f87171; animation: pulse 2s infinite; }
 @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
+.bunk-sub-row { background: var(--surface-alt); }
+.bunk-sub-row td { padding: 10px 16px; border-left: 3px solid var(--primary); font-size: 13px; }
+.leaderboard-row { cursor: pointer; transition: background 0.2s; }
+.leaderboard-row:hover { background: var(--bg); }
 </style></head><body>
 <div class='container'>
 <div class='header'>
@@ -111,6 +115,8 @@ tr:last-child td { border-bottom: none; }
 <table><thead><tr>
 <th>Roll #</th><th>Student Name</th><th>Location</th><th>Out Since</th><th>Current Dur.</th><th>Total Bunks</th><th>Alert Status</th>
 </tr></thead><tbody id='activeTableBody'></tbody></table>
+<div class='section-title'>Daily Bunk Leaderboard</div>
+<table><thead><tr><th>Rank</th><th>Student Name</th><th>Total Bunks</th><th>Total Duration</th></tr></thead><tbody id='bunkLeaderboardBody'></tbody></table>
 <div class='section-title'>All Students <button class='toggle-btn' id='toggleAllBtn'>Show</button></div>
 <table id='allTable' class='hidden'><thead><tr>
 <th>Roll #</th><th>Student Name</th><th>Location</th><th>IN</th><th>OUT</th><th>Bunks</th><th>Alert Status</th>
@@ -197,7 +203,47 @@ function render() {
   });
   document.getElementById('activeTableBody').innerHTML = activeHTML;
   document.getElementById('allTableBody').innerHTML = allHTML || `<tr><td colspan="7" style='text-align:center;'>No matching students found.</td></tr>`;
+  renderLeaderboard(window.latestBunkLogs || mockBunkLogs);
 }
+
+let mockBunkLogs = [
+  {name: 'Yash Pratap', out: '0810hrs', in: '0820hrs', duration: '10m 0s', durationSecs: 600, tally: 1},
+  {name: 'Yash Pratap', out: '1000hrs', in: '1010hrs', duration: '10m 0s', durationSecs: 600, tally: 2},
+  {name: 'Rahul Sharma', out: '0805hrs', in: '0845hrs', duration: '40m 0s', durationSecs: 2400, tally: 1}
+];
+window.latestBunkLogs = mockBunkLogs;
+window.expandedRows = new Set();
+window.toggleBunkDetails = function(name) {
+  if(window.expandedRows.has(name)) window.expandedRows.delete(name); else window.expandedRows.add(name);
+  renderLeaderboard(window.latestBunkLogs);
+};
+
+function renderLeaderboard(logs) {
+  if(!logs || logs.length==0) { document.getElementById('bunkLeaderboardBody').innerHTML = '<tr><td colspan="4" style="text-align:center; color:#6b7280; padding:20px;">No bunks recorded today.</td></tr>'; return; }
+  let allBunks = [...logs].sort((a,b) => b.durationSecs - a.durationSecs);
+  allBunks.forEach((b, i) => b.classRank = i + 1);
+  let grouped = {};
+  logs.forEach(log => {
+    if(!grouped[log.name]) grouped[log.name] = { name: log.name, bunks: [], totalDur: 0 };
+    grouped[log.name].bunks.push(log);
+    grouped[log.name].totalDur += log.durationSecs;
+  });
+  let studentsArr = Object.values(grouped).sort((a,b) => b.totalDur - a.totalDur);
+  let lHtml = '';
+  studentsArr.forEach((s, i) => {
+    let isExpanded = window.expandedRows.has(s.name);
+    lHtml += `<tr class='leaderboard-row' onclick='window.toggleBunkDetails("${s.name}")'><td>#${i+1}</td><td style='font-weight:600;'>${s.name} ${isExpanded?'▼':'▶'}</td><td class='mono'>${s.bunks.length}</td><td class='mono' style='font-weight:bold; color:#b91c1c;'>${formatDur(s.totalDur)}</td></tr>`;
+    if(isExpanded) {
+      lHtml += `<tr class='bunk-sub-row'><td colspan='4'><div style='margin-bottom:8px; font-weight:bold; font-size:12px; color:var(--text-muted);'>DETAILS:</div><table style='box-shadow:none; border:none; margin:0;'><thead><tr><th>Bunk No.</th><th>Out Time</th><th>In Time</th><th>Duration</th><th>Class Rank</th></tr></thead><tbody>`;
+      s.bunks.forEach((b, j) => {
+        lHtml += `<tr><td>#${j+1}</td><td class='mono'>${b.out}</td><td class='mono'>${b.in}</td><td class='mono'>${formatDur(b.durationSecs)}</td><td><b>#${b.classRank}</b></td></tr>`;
+      });
+      lHtml += `</tbody></table></td></tr>`;
+    }
+  });
+  document.getElementById('bunkLeaderboardBody').innerHTML = lHtml;
+}
+
 document.getElementById('searchInput').addEventListener('input', (e) => {
   searchQuery = e.target.value.toLowerCase();
   render();
