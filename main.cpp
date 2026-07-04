@@ -98,10 +98,10 @@ String getDashboardHTML() {
   html += "<title>SHIELD Control Center</title>";
   html += "<link href='https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700;900&family=JetBrains+Mono:wght=400;600&display=swap' rel='stylesheet'>";
   html += "<style>";
-  html += ":root { --bg: #f8f9fa; --surface: #ffffff; --surface-alt: #f9fafb; --text-main: #111827; --text-muted: #6b7280; --border: #e5e7eb; --primary: #000000; --radius: 8px; --shadow: 0 1px 3px rgba(0,0,0,0.1); --container-bg: rgba(255, 255, 255, 0.85); }";
-  html += "[data-theme='dark'] { --bg: #111827; --surface: #1f2937; --surface-alt: #374151; --text-main: #f9fafb; --text-muted: #9ca3af; --border: #374151; --primary: #ffffff; --shadow: 0 1px 3px rgba(0,0,0,0.5); --container-bg: rgba(31, 41, 55, 0.85); }";
-  html += "body { margin: 0; color: var(--text-main); font-family: 'Inter', sans-serif; padding: 20px; transition: background-color 0.3s; background-image: url('https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=2000&auto=format&fit=crop'); background-size: cover; background-position: center; background-attachment: fixed; background-color: var(--bg); }";
-  html += ".container { max-width: 1200px; margin: 0 auto; background: var(--container-bg); padding: 30px; border-radius: 12px; box-shadow: 0 4px 30px var(--shadow); backdrop-filter: blur(5px); }";
+  html += ":root { --bg: #f8f9fa; --surface: #ffffff; --surface-alt: #f9fafb; --text-main: #111827; --text-muted: #6b7280; --border: #e5e7eb; --primary: #000000; --radius: 8px; --shadow: 0 1px 3px rgba(0,0,0,0.1); --container-bg: rgba(255, 255, 255, 0.90); }";
+  html += "[data-theme='dark'] { --bg: #111827; --surface: #1f2937; --surface-alt: #374151; --text-main: #f9fafb; --text-muted: #9ca3af; --border: #374151; --primary: #ffffff; --shadow: 0 1px 3px rgba(0,0,0,0.5); --container-bg: rgba(31, 41, 55, 0.90); }";
+  html += "body { margin: 0; color: var(--text-main); font-family: 'Inter', sans-serif; padding: 20px; transition: background-color 0.3s; background-image: url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2000&auto=format&fit=crop'); background-size: cover; background-position: center; background-attachment: fixed; background-color: var(--bg); }";
+  html += ".container { max-width: 1200px; margin: 0 auto; background: var(--container-bg); padding: 30px; border-radius: 12px; box-shadow: 0 4px 30px var(--shadow); backdrop-filter: blur(10px); }";
   html += ".header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid var(--primary); padding-bottom: 25px; position: relative; }";
   html += ".header h1 { margin: 0; font-size: 42px; font-weight: 900; text-transform: uppercase; letter-spacing: 4px; line-height: 1.1; }";
   html += ".header .full-form { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); margin-top: 6px; }";
